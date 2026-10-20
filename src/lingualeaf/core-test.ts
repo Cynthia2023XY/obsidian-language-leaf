@@ -27,6 +27,16 @@ describe("普通 Markdown 上下文与双语对齐", () => {
         const source = "The old bookmark was gone. In its place was paper.\n\n> [!translation]-\n> 旧书签不见了。\n> 换成了一张纸。";
         expect(extractContext(source, "In its place", "线索")).toEqual({ sentence: "The old bookmark was gone. In its place was paper.", translation: "旧书签不见了。\n换成了一张纸。", outline: "线索", anchor: "The old bookmark was gone. In its place was paper." });
     });
+    it("原文紧随翻译且文件头有空行时按独立段落定位", () => {
+        // 与指定双语文章相同的排版：frontmatter 后无空行，翻译前也无空行。
+        const source = "\n---\ndate created: today\n---\nThere is **wealth** in a career.\n> [!translation]-\n> 职业中的财富。\n\nAnother career.\n> [!translation]-\n> 另一份职业。";
+        expect(extractContext(source, "wealth", "", "There is wealth in a career.")).toMatchObject({ sentence: "There is wealth in a career.", translation: "职业中的财富。" });
+        expect(extractContext(source.replace(/\n/g, "\r\n"), "Another", "").translation).toBe("另一份职业。");
+        expect(() => extractContext(source, "职业中的财富", "")).toThrow("定位");
+    });
+    it("数值实体按浏览器显示的撇号和引号定位", () => {
+        expect(extractContext("I&#x27;d build &quot;wealth&quot;.", "I'd", "", 'I\'d build "wealth".').sentence).toBe('I\'d build "wealth".');
+    });
     it("标题隔开的中文不错误关联", () => {
         expect(extractContext("Hello world.\n\n## 下节\n\n> [!translation]-\n> 你好", "Hello", "").translation).toBe("");
     });
@@ -76,6 +86,15 @@ describe("原生闪卡与 SR 进度保留", () => {
         expect(parseCards(twice, "?")[0].card.id).toBe("card-1");
         expect(twice).toContain("tags: [reading]\n---\n\n正文。");
         expect(twice).toContain('ll-article-id: "article-card-1"');
+    });
+    it("原文件 frontmatter 前有空行时保存仍复用原 YAML", () => {
+        // 双语源文件允许开头存在空行，不应重复插入第二份 YAML。
+        const source = "\n---\ntags: [reading]\n---\nThere is wealth.\n> [!translation]-\n> 财富。";
+        // 首次保存仅在原 YAML 中补身份字段。
+        const result = upsertCard(source, card(), "?", "#flashcards");
+        expect(result.match(/^---$/gm)).toHaveLength(2);
+        expect(result).toContain("tags: [reading]\n---\nThere is wealth.");
+        expect(result.startsWith('\n---\nll-article-id:')).toBe(true);
     });
     it("保留 CRLF 并且手工改释义后重建索引读取新值", () => {
         // Windows 换行不能因一张卡更新改变全篇。

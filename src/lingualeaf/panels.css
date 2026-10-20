@@ -61,8 +61,12 @@
 #langr-learn-panel .ll-optional[open] summary > .ll-icon { transform: rotate(90deg); }
 #langr-learn-panel .ll-optional > .n-input, #langr-learn-panel .ll-note-row { margin-top: 12px; }
 #langr-learn-panel .ll-note-row { display: flex; align-items: flex-start; gap: 6px; }
-#langr-learn-panel .ll-capture-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
-#langr-learn-panel .ll-save-card { padding-inline: 14px; }
+#langr-learn-panel .ll-capture-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 24px; }
+#langr-learn-panel .ll-save-card { width: 100%; min-height: 42px; font-size: 15px; }
+/* 清除宿主主题对原生 textarea 的最小高度，交给组件自动按内容增高。 */
+#langr-learn-panel .n-input textarea { min-height: 0; padding: 0; margin: 0; box-shadow: none; background: transparent; }
+/* 学习状态使用明确蓝底，兼容明暗主题和悬停状态。 */
+.lingualeaf-study-active, .lingualeaf-study-active:hover { background-color: #2563eb; color: #fff; }
 
 /* 主标签页采用清晰的表达/来源层级与不抢眼的表格边界。 */
 #langr-data { padding: 12px 8px; }

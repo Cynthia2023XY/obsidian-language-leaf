@@ -26,6 +26,6 @@ export function usePanelTheme() {
         return { common,
             Form: { labelFontSizeTopMedium: "12px", labelFontSizeTopSmall: "12px", labelTextColor: common.textColor3, feedbackFontSizeMedium: "12px", feedbackHeightMedium: "18px", blankHeightMedium: "0px" },
             DataTable: { fontSizeSmall: "13px", tdPaddingSmall: "14px 12px", thPaddingSmall: "10px 12px", tdColor: common.bodyColor, thColor: common.bodyColor, thColorSorting: common.bodyColor, tdColorSorting: common.bodyColor, tdColorHover: common.inputColor },
-            Input: { fontSizeSmall: "14px" }, Tag: { fontSizeSmall: "12px" } };
+            Input: { fontSizeSmall: "14px", lineHeightTextarea: "1.5" }, Tag: { fontSizeSmall: "12px" } };
     });
 }

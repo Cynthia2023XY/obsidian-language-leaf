@@ -1,0 +1,19 @@
+{
+  "testedAt": "2026-10-20T11:55:42.092Z",
+  "method": "Obsidian source context + Vue form DOM keyboard events; native reading drag and physical keyboard not verified",
+  "path": "Language Leaf双语回归-1792497339960.md",
+  "active": "退出学习模式",
+  "sourceContext": true,
+  "translation": true,
+  "nativeDragVerified": false,
+  "singleEnterDidNotSave": true,
+  "doubleEnterSaved": true,
+  "cards": 1,
+  "heights": [
+    28,
+    28
+  ],
+  "buttonWidth": 309,
+  "footerWidth": 309,
+  "learningButtonStates": true
+}

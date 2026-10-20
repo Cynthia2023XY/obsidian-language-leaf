@@ -17,6 +17,8 @@ export default class LinguaLeaf extends Plugin {
     lingualeaf: LinguaLeafRuntime;
     /** 经白名单校验的简化配置 */
     settings: LeafPluginSettings;
+    /** 跟随当前活动文章变化的侧栏学习按钮 */
+    private readingRibbon?: HTMLElement;
     /** 面板共用的主题与词典展示状态 */
     store = store;
     /** 保留原表格的桌面字号适配 */
@@ -70,7 +72,7 @@ export default class LinguaLeaf extends Plugin {
             this.lingualeaf.load();
             stage = "注册侧栏按钮";
             this.logLifecycle(stage, "开始");
-            this.addRibbonIcon("languages", "切换当前文档为学习模式", () => { void this.lingualeaf.toggle().catch(report); });
+            this.readingRibbon = this.addRibbonIcon("languages", "进入学习模式", () => { void this.lingualeaf.toggle().catch(report); });
             this.addRibbonIcon(SEARCH_ICON, "打开查词面板", () => { void this.activateView(SEARCH_PANEL_VIEW, "left").catch(report); });
             this.addRibbonIcon(LEARN_ICON, "打开新词面板", () => { void this.lingualeaf.openNewWordPanel().catch(report); });
             this.addRibbonIcon(DATA_ICON, "打开单词列表", () => { void this.activateView(DATA_PANEL_VIEW, "tab").catch(report); });
@@ -119,25 +121,41 @@ export default class LinguaLeaf extends Plugin {
     /** 当前 Markdown 标题栏提供与命令相同的学习模式切换 */
     private registerReadingActions(): void {
         // 各个标签独立维护按钮，不再使用旧阅读器或 frontmatter 标记。
-        const update = (): void => {
-            for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
-                // 只对已有文件的原生 Markdown 视图添加一次。
-                const view = leaf.view;
-                if (!(view instanceof MarkdownView) || !view.file || view.containerEl.querySelector(".lingualeaf-study-action")) continue;
-                view.addAction("languages", "切换当前文档为学习模式", () => {
-                    if (this.lingualeaf.host.sessions.has(view)) this.lingualeaf.host.stop(view);
-                    else void this.lingualeaf.enter(view).catch(report);
-                }).addClass("lingualeaf-study-action");
-            }
-        };
+        const update = (): void => this.refreshReadingActions();
+        this.registerEvent(this.app.workspace.on("active-leaf-change", update));
         this.registerEvent(this.app.workspace.on("layout-change", update));
         this.registerEvent(this.app.workspace.on("file-open", update));
         this.app.workspace.onLayoutReady(update);
         this.register(() => {
-            this.logLifecycle("移除文章标题栏按钮", "开始");
             for (const leaf of this.app.workspace.getLeavesOfType("markdown")) leaf.view.containerEl.querySelectorAll(".lingualeaf-study-action, .change-to-reading").forEach(button => button.remove());
-            this.logLifecycle("移除文章标题栏按钮", "完成");
         });
+    }
+    /** 同步所有文章标题栏与当前侧栏按钮的进入、退出状态 */
+    refreshReadingActions(): void {
+        for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+            // 每个 Markdown 视图都具有独立的学习状态。
+            const view = leaf.view;
+            if (!(view instanceof MarkdownView) || !view.file) continue;
+            // 视图仍存在时复用标题栏按钮。
+            const button = view.containerEl.querySelector<HTMLElement>(".lingualeaf-study-action") || view.addAction("languages", "进入学习模式", () => {
+                if (this.lingualeaf.host.sessions.has(view)) this.lingualeaf.host.stop(view);
+                else void this.lingualeaf.enter(view).catch(report);
+            });
+            button.addClass("lingualeaf-study-action");
+            this.setReadingAction(button, this.lingualeaf.host.sessions.has(view));
+        }
+        // 侧栏按钮以当前或最近的 Markdown 视图为操作目标提示。
+        const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (this.readingRibbon) this.setReadingAction(this.readingRibbon, !!active && this.lingualeaf.host.sessions.has(active));
+    }
+    /** 用可访问状态和中文提示明确显示学习模式是否开启 */
+    private setReadingAction(button: HTMLElement, active: boolean): void {
+        // aria-label 同时用于 Obsidian 原生悬停提示。
+        const label = active ? "退出学习模式" : "进入学习模式";
+        button.classList.toggle("lingualeaf-study-active", active);
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute("title", label);
     }
     /** 更新白名单配置并立即应用到学习服务及词典面板 */
     async saveSettings(settings: LeafPluginSettings): Promise<void> {

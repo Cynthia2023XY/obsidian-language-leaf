@@ -9,7 +9,7 @@ import { DATA_PANEL_VIEW } from "../views/DataPanelView";
 import { SEARCH_PANEL_VIEW } from "../views/SearchPanelView";
 import { LEARN_PANEL_VIEW } from "../views/LearnPanelView";
 import { cardToForm, formToCard } from "./panel-model";
-import { resetShiftSelection, extendShiftSelection } from "./selection";
+import { resetShiftSelection, extendShiftSelection, selectedParagraph } from "./selection";
 import type { TextCaret } from "./selection";
 
 /** 右侧新词表单冻结的文章来源，防止异步查询写错文件 */
@@ -46,6 +46,7 @@ export class LinguaLeafRuntime {
     constructor(plugin: LanguageLearner) {
         this.plugin = plugin;
         this.host = new LeafHost(plugin, plugin.settings.learning);
+        this.host.onSessionChange = () => plugin.refreshReadingActions();
     }
     /** 注册命令及严格绑定会话的事件 */
     load(): void {
@@ -141,6 +142,7 @@ export class LinguaLeafRuntime {
             view.containerEl.removeEventListener("pointerdown", pointerdown, true);
             view.containerEl.removeEventListener("pointerup", pointerup);
         } });
+        this.plugin.refreshReadingActions();
         new Notice(`Language Leaf 学习模式已开启：按住 ${this.host.settings.modifier.replace("Key", "")} 划词；关闭文档自动退出`);
     }
     /** 读取所属窗口选区，拒绝跨段、翻译、代码和插件浮层 */
@@ -152,13 +154,9 @@ export class LinguaLeafRuntime {
         // 选区两端必须都属于当前文章。
         const range = selection.getRangeAt(0);
         if (!view.contentEl.contains(range.startContainer) || !view.contentEl.contains(range.endContainer)) throw new Error("选区不属于当前文章正文");
-        // Text 节点通过 parentElement 追溯，元素节点可直接检查。
-        const start = range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement;
-        // 首版限定普通段落，避免表格和嵌入内容写错来源。
-        const paragraph = start?.closest("p");
-        // 跨段选择不能只凭起点猜测译文。
-        const end = range.endContainer.nodeType === 1 ? range.endContainer as Element : range.endContainer.parentElement;
-        if (!paragraph || paragraph !== end?.closest("p") || (start?.closest("code") || end?.closest("code")) || paragraph.closest(".callout, pre, code, .markdown-embed, .frontmatter, .lingualeaf-modal")) throw new Error("请在普通正文的同一段落内选择，代码、翻译和嵌入内容暂不支持");
+        // 浏览器可能将段落末尾的选区端点记录在外层容器，按实际选中文字校验。
+        const paragraph = selectedParagraph(range, view.contentEl);
+        if (!paragraph) throw new Error("请在普通正文的同一段落内选择，代码、翻译和嵌入内容暂不支持");
         await this.query(view, selection.toString(), paragraph.textContent || "");
     }
     /** 把来源和上下文冻结到表单，并检查查询结束时会话仍有效 */
@@ -238,5 +236,5 @@ export class LinguaLeafRuntime {
         new Notice("已保存到本文闪卡，现有复习进度已保留");
     }
     /** 卸载插件时关闭当前文章会话 */
-    unload(): void { this.alive = false; this.host.dispose(); }
+    unload(): void { this.alive = false; this.host.onSessionChange = undefined; this.host.dispose(); }
 }

@@ -96,6 +96,8 @@ export class LeafHost {
     store: LearningStore;
     /** 每个视图独立的学习会话 */
     sessions = new Map<MarkdownView, ReadingSession>();
+    /** 会话增删后同步宿主按钮状态 */
+    onSessionChange?: () => void;
     /** 上次有效索引，损坏文件不会静默清空 */
     index = new Map<string, IndexedCard[]>();
     /** 阻止损坏来源继续被修改 */
@@ -297,6 +299,7 @@ export class LeafHost {
         this.sessions.delete(view);
         session.dispose();
         view.containerEl.removeClass("lingualeaf-reading");
+        this.onSessionChange?.();
         if (restore && view.file === session.file && session.mode !== view.getMode()) void view.setState({ ...view.getState(), mode: session.mode }, { history: false });
     }
     /** 插件卸载时不留下监听器或临时标记 */

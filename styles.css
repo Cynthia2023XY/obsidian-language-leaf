@@ -651,14 +651,27 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 }
 #langr-learn-panel .ll-capture-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   margin-top: 24px;
 }
 #langr-learn-panel .ll-save-card {
-  padding-inline: 14px;
+  width: 100%;
+  min-height: 42px;
+  font-size: 15px;
+}
+#langr-learn-panel .n-input textarea {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.lingualeaf-study-active,
+.lingualeaf-study-active:hover {
+  background-color: #2563eb;
+  color: #fff;
 }
 #langr-data {
   padding: 12px 8px;

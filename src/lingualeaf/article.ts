@@ -1,5 +1,6 @@
 import type { ArticleContext, LeafCard, LocatedCard } from "./domain";
 import { expressionKey } from "./domain";
+import { decodeTextEntities } from "./translation";
 
 /** 将单行字段转为无空行的安全卡片正文，阻止输入制造第二张 SR 卡 */
 export function cardLine(value: string): string {
@@ -11,7 +12,7 @@ export function decodeCardLine(value: string): string {
 }
 /** 从 Markdown 表示提取用于选区定位的可读文本 */
 export function plainText(value: string): string {
-    return value.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    return decodeTextEntities(value).replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
         .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, "$1")
         .replace(/[*_`]/g, "").replace(/&(?:amp|lt|gt|quot|apos|nbsp);/g, entity => ({ "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'", "&nbsp;": " " }[entity] || entity)).replace(/\s+/g, " ").trim();
 }
@@ -41,7 +42,7 @@ export function articleBody(source: string): string {
     // 排除数据区、源码示例以及 YAML。
     const ranges = fencedBlocks(source).map(block => [block.from, block.to]);
     // YAML 仅能出现在文件开头。
-    const front = source.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+    const front = source.match(/^\uFEFF?(?:[ \t]*\r?\n)*---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
     if (front) ranges.push([0, front[0].length]);
     // 文末 LL 卡片不是学习文章正文。
     const cards = source.indexOf("<!-- ll-card:");
@@ -51,7 +52,7 @@ export function articleBody(source: string): string {
 /** 从符合约定的唯一段落读取已有中文，重复段落时拒绝猜配 */
 export function extractContext(source: string, selected: string, outline: string, paragraphHint?: string): ArticleContext {
     // 保留自然段和紧随的翻译 callout，不推测句子级一对一翻译。
-    const paragraphs = articleBody(source).split(/\r?\n\s*\r?\n/);
+    const paragraphs = articleBody(source).split(/\r?\n\s*\r?\n|\r?\n(?=>\s*\[!translation\][+-]?(?:[^\r\n]*)$)/m);
     // 同文重复时必须通过渲染段落上下文缩小候选。
     const candidates = paragraphs.map((paragraph, index) => ({ paragraph, index }))
         .filter(item => !/^\s*(>|#{1,6} |[-*] )/.test(item.paragraph) && plainText(item.paragraph).includes(plainText(selected)))
@@ -176,14 +177,14 @@ export function upsertCard(source: string, card: LeafCard, separator: string, de
     if (previous) return source.slice(0, previous.from) + rendered + source.slice(previous.to);
     if (!/^#[\p{L}\p{N}_/-]+$/u.test(deckTag)) throw new Error("卡组标签格式无效");
     // 首次收词才补文章身份，原有 YAML 字段保持原样。
-    const front = source.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+    const front = source.match(/^(\uFEFF?(?:[ \t]*\r?\n)*---\r?\n)[\s\S]*?\r?\n---(?:\r?\n|$)/);
     // 文章 ID 独立于可变路径，在重复重试时保持稳定。
     const identity = `ll-article-id: "article-${card.id}"${newline}ll-language: "${card.language}"${newline}`;
     if (!front) source = `---${newline}${identity}---${newline}${newline}` + source;
     else if (!/^ll-article-id:/m.test(front[0])) {
         // 已有语言声明不覆盖，其他 frontmatter 的注释和排版保持不变。
         const additions = `ll-article-id: "article-${card.id}"${newline}` + (/^ll-language:/m.test(front[0]) ? "" : `ll-language: "${card.language}"${newline}`);
-        source = source.slice(0, 4 + (newline.length - 1)) + additions + source.slice(4 + (newline.length - 1));
+        source = source.slice(0, front[1].length) + additions + source.slice(front[1].length);
     }
     return source + (source.endsWith(newline) ? newline : newline + newline) +
         (cards.length ? "" : `## 本文词句${newline}${newline}${deckTag + newline + newline}`) + rendered + newline;

@@ -102,3 +102,29 @@ describe("Shift 原生拖选起点", () => {
         expect(document.getSelection()!.anchorOffset).toBe(9);
     });
 });
+
+/** 按真实选中文字校验段落，避免 DOM 端点格式造成误报 */
+describe("双语正文选区边界", () => {
+    it("段落外层元素作为终点时仍能找到唯一英文段落", async () => {
+        // 阅读器的全段选择可以结束在英文段落后的容器边界。
+        const { selectedParagraph } = await import("./selection");
+        // 译文与英文紧邻，端点不能被误判为选中了译文。
+        const setup = fixture('<p>Hello <strong>wealth</strong>.</p><div class="callout"><p>财富。</p></div>');
+        // 终点指向 callout 之前，而非英文文本节点。
+        const range = document.createRange();
+        range.setStart(setup.paragraph.firstChild!, 0);
+        range.setEnd(setup.paragraph.parentElement!, 1);
+        expect(selectedParagraph(range, setup.content)).toBe(setup.paragraph);
+    });
+    it("同段强调可查询，跨译文、跨段和混入代码继续拒绝", async () => {
+        // 覆盖边界保护，防止修复时把译文当成原文保存。
+        const { selectedParagraph } = await import("./selection");
+        for (const markup of ['<p>Hello <strong>wealth</strong>.</p>', '<p>Hello.</p><p>World.</p>', '<p>Hello <code>wealth</code>.</p>', '<div class="callout"><p>财富。</p></div>']) {
+            // 全选测试容器以模拟元素边界形式的选区。
+            const setup = fixture(markup);
+            // 只包含当前案例，不读取之前的 DOM。
+            const range = document.createRange(); range.selectNodeContents(setup.paragraph.parentElement!);
+            expect(selectedParagraph(range, setup.content)).toBe(markup.includes("strong") ? setup.paragraph : null);
+        }
+    });
+});
