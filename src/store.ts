@@ -1,16 +1,5 @@
 import { reactive } from "vue";
 
-const store = reactive({
-    text: "",
-    dark: false,
-    themeChange: false,
-    fontSize: "",
-    fontFamily: "",
-    lineHeight: "",
-    popupSearch: true,
-    searchPinned: false,
-    dictsChange: false,
-    dictHeight: "",
-});
-
+/** 三个学习面板共享的主题、词典刷新和展开高度 */
+const store = reactive({ dark: false, themeChange: false, dictsChange: false, dictHeight: "250px" });
 export default store;

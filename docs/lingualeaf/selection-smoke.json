@@ -1,0 +1,12 @@
+{
+  "scope": "SR-only simplification",
+  "unitCoverage": {
+    "selectionTests": 6,
+    "totalTests": 36,
+    "status": "passed"
+  },
+  "runtimeDrag": {
+    "status": "not_reverified",
+    "reason": "Test vault window hidden; Obsidian pauses native preview rendering in the background."
+  }
+}

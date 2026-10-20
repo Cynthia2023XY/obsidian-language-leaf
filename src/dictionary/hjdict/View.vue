@@ -20,7 +20,7 @@ const emits = defineEmits<{
 
 let entries = ref<string[]>([]);
 async function onSearch(): Promise<boolean> {
-    let res = await search(props.word, { lang: plugin.settings.foreign });
+    let res = await search(props.word, { lang: (plugin.lingualeaf.capture?.card.language || plugin.settings.learning.language) });
     if (res.result.type === "lex") {
         entries.value = res.result.entries;
         return true;

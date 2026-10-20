@@ -36,7 +36,8 @@ export class DataPanelView extends ItemView {
 		this.vueapp.mount(container);
 	}
 	async onClose() {
-		this.vueapp.unmount();
+		// 重载插件可能重复关闭叶子，卸载同一个 Vue 实例应保持幂等。
+		this.vueapp?.unmount();
 		this.vueapp = null;
 	}
 }

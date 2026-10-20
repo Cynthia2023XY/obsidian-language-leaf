@@ -106,7 +106,12 @@ let inputWord = ref("");
 let word = ref("");
 const onSearch = async (evt: CustomEvent) => {
     let text = evt.detail.selection;
+    // 首版法语只支持手工收录，不自动发送到已有英语词典。
+    if (evt.detail.leafCapture && !evt.detail.leafCapture.card.language.startsWith("en")) {
+        inputWord.value = text; word.value = ""; return;
+    }
     word.value = text;
+    inputWord.value = text;
     appendHistory();
 };
 

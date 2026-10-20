@@ -1,694 +1,144 @@
-import {
-    Notice,
-    Plugin,
-    Menu,
-    WorkspaceLeaf,
-    ViewState,
-    MarkdownView,
-    Editor,
-    TFile,
-    normalizePath,
-    Platform,
-} from "obsidian";
-import { around } from "monkey-around";
-import { createApp, App as VueApp } from "vue";
-
+import { MarkdownView, Notice, Platform, Plugin } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import { SearchPanelView, SEARCH_ICON, SEARCH_PANEL_VIEW } from "./views/SearchPanelView";
-import { READING_VIEW_TYPE, READING_ICON, ReadingView } from "./views/ReadingView";
 import { LearnPanelView, LEARN_ICON, LEARN_PANEL_VIEW } from "./views/LearnPanelView";
-import { StatView, STAT_ICON, STAT_VIEW_TYPE } from "./views/StatView";
 import { DataPanelView, DATA_ICON, DATA_PANEL_VIEW } from "./views/DataPanelView";
-// import { PDFView, PDF_FILE_EXTENSION, VIEW_TYPE_PDF } from "./views/PDFView";
-
-import { t } from "./lang/helper";
-import DbProvider from "./db/base";
-import { WebDb } from "./db/web_db";
-import { LocalDb } from "./db/local_db";
-import { TextParser } from "./views/parser";
-import { FrontMatterManager } from "./utils/frontmatter";
-import Server from "./api/server";
-
-import { DEFAULT_SETTINGS, MyPluginSettings, SettingTab } from "./settings";
-import store from "./store";
+import { SettingTab } from "./settings";
+import { readSettings } from "./lingualeaf/config";
+import type { LeafPluginSettings } from "./lingualeaf/config";
+import { LinguaLeafRuntime } from "./lingualeaf/runtime";
+import { report } from "./lingualeaf/ui";
 import { playAudio } from "./utils/helpers";
-import type { Position } from "./constant";
-import { InputModal } from "./modals"
+import store from "./store";
 
-import Global from "./views/Global.vue";
+/** 原生文章学习、词典面板和 SR 随文闪卡的插件入口 */
+export default class LinguaLeaf extends Plugin {
+    /** 当前学习与收词服务 */
+    lingualeaf: LinguaLeafRuntime;
+    /** 经白名单校验的简化配置 */
+    settings: LeafPluginSettings;
+    /** 面板共用的主题与词典展示状态 */
+    store = store;
+    /** 保留原表格的桌面字号适配 */
+    constants = { platform: Platform.isMobile ? "mobile" : "desktop" };
 
-
-
-export const FRONT_MATTER_KEY: string = "langr";
-
-export default class LanguageLearner extends Plugin {
-    constants: { basePath: string; platform: "mobile" | "desktop"; };
-    settings: MyPluginSettings;
-    appEl: HTMLElement;
-    vueApp: VueApp;
-    db: DbProvider;
-    server: Server;
-    parser: TextParser;
-    markdownButtons: Record<string, HTMLElement> = {};
-    frontManager: FrontMatterManager;
-    store: typeof store = store;
-
-    async onload() {
-        // 读取设置
-        await this.loadSettings();
+    /** 初始化三个原有 Vue 面板及四个核心命令 */
+    async onload(): Promise<void> {
+        this.settings = readSettings(await this.loadData());
+        store.dark = document.body.hasClass("theme-dark");
+        this.lingualeaf = new LinguaLeafRuntime(this);
+        this.registerView(SEARCH_PANEL_VIEW, leaf => new SearchPanelView(leaf, this));
+        this.registerView(LEARN_PANEL_VIEW, leaf => new LearnPanelView(leaf, this));
+        this.registerView(DATA_PANEL_VIEW, leaf => new DataPanelView(leaf, this));
         this.addSettingTab(new SettingTab(this.app, this));
-
-        this.registerConstants();
-
-        // 打开数据库
-        this.db = this.settings.use_server
-            ? new WebDb(
-                this.settings.host,
-                this.settings.port,
-                this.settings.use_https,
-                this.settings.api_key
-                )
-            : new LocalDb(this);
-        await this.db.open();
-
-        // 设置解析器
-        this.parser = new TextParser(this);
-        this.frontManager = new FrontMatterManager(this.app);
-
-        // 打开内置服务器
-        this.server = this.settings.self_server
-            ? new Server(this, this.settings.self_port)
-            : null;
-        await this.server?.start();
-
-        // test
-        // this.addCommand({
-        // 	id: "langr-test",
-        // 	name: "Test for langr",
-        // 	callback: () => new Notice("hello!")
-        // })
-
-        // await this.replacePDF();
-
-        this.initStore();
-
-        this.addCommands();
-        this.registerCustomViews();
-        this.registerReadingToggle();
-        this.registerContextMenu();
-        this.registerLeftClick();
-        this.registerMouseup();
+        this.lingualeaf.load();
+        this.addRibbonIcon("languages", "切换当前文档为学习模式", () => { void this.lingualeaf.toggle().catch(report); });
+        this.addRibbonIcon(SEARCH_ICON, "打开查词面板", () => { void this.activateView(SEARCH_PANEL_VIEW, "left").catch(report); });
+        this.addRibbonIcon(LEARN_ICON, "打开新词面板", () => { void this.lingualeaf.openNewWordPanel().catch(report); });
+        this.addRibbonIcon(DATA_ICON, "打开单词列表", () => { void this.activateView(DATA_PANEL_VIEW, "tab").catch(report); });
+        this.registerReadingActions();
         this.registerReviewCardAutoPronounce();
-        this.registerEvent(
-            this.app.workspace.on("css-change", () => {
-                store.dark = document.body.hasClass("theme-dark");
-                store.themeChange = !store.themeChange;
-            })
-        );
-
-        // 创建全局app用于各种浮动元素
-        this.appEl = document.body.createDiv({ cls: "langr-app" });
-        this.vueApp = createApp(Global);
-        this.vueApp.config.globalProperties.plugin = this;
-        this.vueApp.mount(this.appEl);
-    }
-
-    async onunload() {
-        this.app.workspace.detachLeavesOfType(SEARCH_PANEL_VIEW);
-        this.app.workspace.detachLeavesOfType(LEARN_PANEL_VIEW);
-        this.app.workspace.detachLeavesOfType(DATA_PANEL_VIEW);
-        this.app.workspace.detachLeavesOfType(STAT_VIEW_TYPE);
-        this.app.workspace.detachLeavesOfType(READING_VIEW_TYPE);
-
-        this.db.close();
-        this.server?.close();
-        // if (await app.vault.adapter.exists(".obsidian/plugins/obsidian-language-learner/pdf/web/viewer.html")) {
-        //     this.registerExtensions([PDF_FILE_EXTENSION], "pdf");
-        // }
-
-        this.vueApp.unmount();
-        this.appEl.remove();
-        this.appEl = null;
-    }
-
-    registerConstants() {
-        this.constants = {
-            basePath: normalizePath((this.app.vault.adapter as any).basePath),
-            platform: Platform.isMobile ? "mobile" : "desktop",
-        };
-    }
-
-    // async replacePDF() {
-    //     if (await app.vault.adapter.exists(
-    //         ".obsidian/plugins/obsidian-language-learner/pdf/web/viewer.html"
-    //     )) {
-    //         this.registerView(VIEW_TYPE_PDF, (leaf) => {
-    //             return new PDFView(leaf);
-    //         });
-
-    //         (this.app as any).viewRegistry.unregisterExtensions([
-    //             PDF_FILE_EXTENSION,
-    //         ]);
-    //         this.registerExtensions([PDF_FILE_EXTENSION], VIEW_TYPE_PDF);
-
-    //         this.registerDomEvent(window, "message", (evt) => {
-    //             if (evt.data.type === "search") {
-    //                 // if (evt.data.funckey || this.store.searchPinned)
-    //                 this.queryWord(evt.data.selection);
-    //             }
-    //         });
-    //     }
-    // }
-
-    initStore() {
-        this.store.dark = document.body.hasClass("theme-dark");
-        this.store.themeChange = false;
-        this.store.fontSize = this.settings.font_size;
-        this.store.fontFamily = this.settings.font_family;
-        this.store.lineHeight = this.settings.line_height;
-        this.store.popupSearch = this.settings.popup_search;
-        this.store.searchPinned = false;
-        this.store.dictsChange = false;
-        this.store.dictHeight = this.settings.dict_height;
-    }
-
-    addCommands() {
-        // 注册刷新单词数据库命令
-        this.addCommand({
-            id: "langr-refresh-word-database",
-            name: t("Refresh Word Database"),
-            callback: this.refreshWordDb,
+        this.registerDomEvent(document.body, "click", event => {
+            // 保留 SR 卡片标题点击发音，不引入另一套复习界面。
+            const title = (event.target as HTMLElement).closest<HTMLElement>(".sr-modal-content h4, .sr-card-container .sr-content h4");
+            if (title?.textContent?.trim()) this.playReviewCardWord(title.textContent.trim());
         });
-
-        // 注册刷新复习数据库命令
-        this.addCommand({
-            id: "langr-refresh-review-database",
-            name: t("Refresh Review Database"),
-            callback: this.refreshReviewDb,
-        });
-
-        // 注册同步当前文章笔记到单词笔记命令
-        this.addCommand({
-            id: "langr-sync-article-notes-to-words",
-            name: t("Sync Article Notes to Words"),
-            callback: this.syncArticleNotesToWords,
-        });
-
-        // 注册从命令面板打开当前文章阅读模式的命令
-        this.addCommand({
-            id: "langr-open-active-reading-view",
-            name: t("Open as Reading View"),
-            callback: this.openActiveMarkdownAsReadingView,
-        });
-
-        // 注册查词命令
-        this.addCommand({
-            id: "langr-search-word-select",
-            name: t("Translate Select"),
-            callback: () => {
-                let selection = window.getSelection().toString().trim();
-                this.queryWord(selection);
-            },
-        });
-        this.addCommand({
-            id: "langr-search-word-input",
-            name: t("Translate Input"),
-            callback: () => {
-                const modal = new InputModal(this.app, (text) => {
-                    this.queryWord(text);
-                });
-                modal.open();
-            },
-        });
-    }
-
-    registerCustomViews() {
-        // 注册查词面板视图
-        this.registerView(
-            SEARCH_PANEL_VIEW,
-            (leaf) => new SearchPanelView(leaf, this)
-        );
-        this.addRibbonIcon(SEARCH_ICON, t("Open word search panel"), (evt) => {
-            this.activateView(SEARCH_PANEL_VIEW, "left");
-        });
-
-        // 注册新词面板视图
-        this.registerView(
-            LEARN_PANEL_VIEW,
-            (leaf) => new LearnPanelView(leaf, this)
-        );
-        this.addRibbonIcon(LEARN_ICON, t("Open new word panel"), (evt) => {
-            this.activateView(LEARN_PANEL_VIEW, "right");
-        });
-
-        // 注册阅读视图
-        this.registerView(
-            READING_VIEW_TYPE,
-            (leaf) => new ReadingView(leaf, this)
-        );
-
-        //注册统计视图
-        this.registerView(STAT_VIEW_TYPE, (leaf) => new StatView(leaf, this));
-        this.addRibbonIcon(STAT_ICON, t("Open statistics"), async (evt) => {
-            this.activateView(STAT_VIEW_TYPE, "right");
-        });
-
-        //注册单词列表视图
-        this.registerView(
-            DATA_PANEL_VIEW,
-            (leaf) => new DataPanelView(leaf, this)
-        );
-        this.addRibbonIcon(DATA_ICON, t("Data Panel"), async (evt) => {
-            this.activateView(DATA_PANEL_VIEW, "tab");
-        });
-    }
-
-    async setMarkdownView(leaf: WorkspaceLeaf, focus: boolean = true) {
-        await leaf.setViewState(
-            {
-                type: "markdown",
-                state: leaf.view.getState(),
-                //popstate: true,
-            } as ViewState,
-            { focus }
-        );
-    }
-
-    async setReadingView(leaf: WorkspaceLeaf) {
-        await leaf.setViewState({
-            type: READING_VIEW_TYPE,
-            state: leaf.view.getState(),
-            //popstate: true,
-        } as ViewState);
-    }
-
-    /** 将当前活动 Markdown 文件打开为阅读模式，作为标题栏按钮不可见时的命令入口 */
-    openActiveMarkdownAsReadingView = async () => {
-        /** 当前活动的 Markdown 视图，用于定位用户正在阅读的文件 */
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView) {
-            new Notice("Please open a Markdown file first");
-            return;
-        }
-
-        /** 当前活动文件的缓存信息，用于判断是否声明为语言学习文章 */
-        const cache = this.app.metadataCache.getFileCache(activeView.file);
-        if (!cache?.frontmatter?.[FRONT_MATTER_KEY]) {
-            new Notice("Current file is not marked as a language learner article");
-            return;
-        }
-
-        await this.setReadingView(activeView.leaf);
-    };
-
-    async refreshTextDB() {
-        await this.refreshWordDb();
-        await this.refreshReviewDb();
-        (this.app as any).commands.executeCommandById(
-            "various-complements:reload-custom-dictionaries"
-        );
-    }
-
-    refreshWordDb = async () => {
-        if (!this.settings.word_database) {
-            return;
-        }
-
-        let dataBase = this.app.vault.getAbstractFileByPath(
-            this.settings.word_database
-        );
-        if (!dataBase || dataBase.hasOwnProperty("children")) {
-            new Notice("Invalid refresh database path");
-            return;
-        }
-        // 获取所有非无视单词的简略信息
-        let words = await this.db.getAllExpressionSimple(false);
-
-        let classified: number[][] = Array(5)
-            .fill(0)
-            .map((_) => []);
-        words.forEach((word, i) => {
-            classified[word.status].push(i);
-        });
-
-        const statusMap = [
-            t("Ignore"),
-            t("Learning"),
-            t("Familiar"),
-            t("Known"),
-            t("Learned"),
-        ];
-
-        let del = this.settings.col_delimiter;
-
-        // 正向查询
-        let classified_texts = classified.map((w, idx) => {
-            return (
-                `#### ${statusMap[idx]}\n` +
-                w.map((i) => `${words[i].expression}${del}    ${words[i].meaning}`)
-                    .join("\n") + "\n"
-            );
-        });
-        classified_texts.shift();
-        let word2Meaning = classified_texts.join("\n");
-
-        // 反向查询
-        let meaning2Word = classified
-            .flat()
-            .map((i) => `${words[i].meaning}  ${del}  ${words[i].expression}`)
-            .join("\n");
-
-        let text = word2Meaning + "\n\n" + "#### 反向查询\n" + meaning2Word;
-        let db = dataBase as TFile;
-        this.app.vault.modify(db, text);
-    };
-
-    refreshReviewDb = async () => {
-        if (!this.settings.review_database) {
-            return;
-        }
-
-        let dataBase = this.app.vault.getAbstractFileByPath(
-            this.settings.review_database
-        );
-        if (!dataBase || "children" in dataBase) {
-            new Notice("Invalid word database path");
-            return;
-        }
-
-        let db = dataBase as TFile;
-        let text = await this.app.vault.read(db);
-        let oldRecord = {} as { [K in string]: string };
-        text.match(/#word(\n.+)+\n(<!--SR.*?-->)/g)
-            ?.map((v) => v.match(/#### (.+)[\s\S]+(<!--SR.*-->)/))
-            ?.forEach((v) => {
-                oldRecord[v[1]] = v[2];
-            });
-
-        // let data = await this.db.getExpressionAfter(this.settings.last_sync)
-        let data = await this.db.getExpressionAfter("1970-01-01T00:00:00Z");
-        if (data.length === 0) {
-            // new Notice("Nothing new")
-            return;
-        }
-
-        data.sort((a, b) => a.expression.localeCompare(b.expression));
-
-        let newText = data.map((word) => {
-            let notes = word.notes.length === 0
-                ? ""
-                : "**Notes**:\n" + word.notes.join("\n").trim() + "\n";
-            let sentences = word.sentences.length === 0
-                ? ""
-                : "**Sentences**:\n" +
-                word.sentences.map((sen) => {
-                    return (
-                        `*${sen.text.trim()}*` + "\n" +
-                        (sen.trans ? sen.trans.trim() + "\n" : "") +
-                        (sen.origin ? sen.origin.trim() : "")
-                    );
-                }).join("\n").trim() + "\n";
-
-            return (
-                `#word\n` +
-                `#### ${word.expression}\n` +
-                `${this.settings.review_delimiter}\n` +
-                `${word.meaning}\n` +
-                `${notes}` +
-                `${sentences}` +
-                (oldRecord[word.expression] ? oldRecord[word.expression] + "\n" : "")
-            );
-        }).join("\n") + "\n";
-
-        newText = "#flashcards\n\n" + newText;
-        await this.app.vault.modify(db, newText);
-
-        this.saveSettings();
-    };
-
-    /** 将当前阅读文章的笔记同步到文中已收录词条的单词笔记 */
-    syncArticleNotesToWords = async () => {
-        /** 当前激活的阅读模式视图 */
-        let reading = this.app.workspace.getActiveViewOfType(ReadingView);
-        if (!reading) {
-            new Notice("Please open the article in Reading View first");
-            return;
-        }
-
-        /** 当前文章笔记区中的最新全文概览 */
-        let articleNotes = (await reading.readContent("notes", false))?.trim();
-        if (!articleNotes) {
-            new Notice("Current article notes are empty");
-            return;
-        }
-
-        /** 当前阅读文章正文内容 */
-        let articleText = await reading.readContent("article", false);
-        if (!articleText) {
-            new Notice("Current article content is empty");
-            return;
-        }
-
-        /** 当前文章中已经收录到词库的单词和短语 */
-        let articleWords = await this.parser.getWordsPhrases(articleText);
-        if (articleWords.length === 0) {
-            new Notice("No stored words found in current article");
-            return;
-        }
-
-        /** 成功同步文章笔记的词条数量 */
-        let updatedCount = 0;
-        /** 逐个处理当前文章中命中的词库词条 */
-        for (let articleWord of articleWords) {
-            /** 当前需要更新笔记的词条完整信息 */
-            let expression = await this.db.getExpression(articleWord.expression);
-            if (!expression) {
-                continue;
-            }
-
-            expression.notes = [articleNotes];
-            if ((await this.db.postExpression(expression)) === 200) {
-                updatedCount++;
-            }
-        }
-
-        if (this.settings.auto_refresh_db) {
-            await this.refreshReviewDb();
-        }
-
-        new Notice(`Synced article notes to ${updatedCount} words`);
-    };
-
-    // 在MardownView的扩展菜单加一个转为Reading模式的选项
-    registerReadingToggle = () => {
-        const pluginSelf = this;
-        pluginSelf.register(
-            around(MarkdownView.prototype, {
-                onPaneMenu(next) {
-                    return function (m: Menu) {
-                        const file = this.file;
-                        const cache = file.cache
-                            ? pluginSelf.app.metadataCache.getFileCache(file)
-                            : null;
-
-                        if (!file ||
-                            !cache?.frontmatter ||
-                            !cache?.frontmatter[FRONT_MATTER_KEY]
-                        ) {
-                            return next.call(this, m);
-                        }
-
-                        m.addItem((item) => {
-                            item.setTitle(t("Open as Reading View"))
-                                .setIcon(READING_ICON)
-                                .onClick(() => { pluginSelf.setReadingView(this.leaf); });
-                        });
-
-                        next.call(this, m);
-                    };
-                },
-            })
-        );
-
-        // 增加标题栏切换阅读模式和mardown模式的按钮
-        pluginSelf.register(
-            around(WorkspaceLeaf.prototype, {
-                setViewState(next) {
-                    return function (state: ViewState, ...rest: any[]): Promise<void> {
-                        return (next.apply(this, [state, ...rest]) as Promise<void>).then(() => {
-                            if (state.type === "markdown" && state.state?.file) {
-                                const cache = pluginSelf.app.metadataCache
-                                    .getCache(state.state.file);
-                                if (cache?.frontmatter && cache.frontmatter[FRONT_MATTER_KEY]) {
-                                    if (!pluginSelf.markdownButtons["reading"]) {
-                                        // 在软件初始化的时候，view上面可能没有 addAction 这个方法
-                                        setTimeout(() => {
-                                            pluginSelf.markdownButtons["reading"] =
-                                                (this.view as MarkdownView).addAction(
-                                                    "view",
-                                                    t("Open as Reading View"),
-                                                    () => {
-                                                        pluginSelf.setReadingView(this);
-                                                    }
-                                                );
-                                            pluginSelf.markdownButtons["reading"].addClass("change-to-reading");
-
-                                        })
-                                    }
-                                } else {
-                                    // 在软件初始化的时候，view上面可能没有 actionsEl 这个字段
-                                    (this.view.actionsEl as HTMLElement)
-                                        ?.querySelectorAll(".change-to-reading")
-                                        .forEach(el => el.remove());
-                                    // pluginSelf.markdownButtons["reading"]?.remove();
-                                    pluginSelf.markdownButtons["reading"] = null;
-                                }
-                            } else {
-                                pluginSelf.markdownButtons["reading"] = null;
-                            }
-                        });
-                    };
-                },
-            })
-        );
-    };
-
-    async queryWord(word: string, target?: HTMLElement, evtPosition?: Position): Promise<void> {
-        if (!word) return;
-
-        if (!this.settings.popup_search) {
-            await this.activateView(SEARCH_PANEL_VIEW, "left");
-        }
-
-        if (target && Platform.isDesktopApp) {
-            await this.activateView(LEARN_PANEL_VIEW, "right");
-        }
-
-        dispatchEvent(new CustomEvent('obsidian-langr-search', {
-            detail: { selection: word, target, evtPosition }
+        this.registerEvent(this.app.workspace.on("css-change", () => {
+            store.dark = document.body.hasClass("theme-dark"); store.themeChange = !store.themeChange;
         }));
-
-        if (this.settings.auto_pron) {
-            let accent = this.settings.review_prons;
-            let wordUrl =
-                `https://dict.youdao.com/dictvoice?type=${accent}&audio=` +
-                encodeURIComponent(word);
-            playAudio(wordUrl);
-        }
     }
-
-    // 管理所有的右键菜单
-    registerContextMenu() {
-        let addMemu = (mu: Menu, selection: string) => {
-            mu.addItem((item) => {
-                item.setTitle(t("Search word"))
-                    .setIcon("info")
-                    .onClick(async () => {
-                        this.queryWord(selection);
-                    });
-            });
-        };
-        // markdown 编辑模式 右键菜单
-        this.registerEvent(
-            this.app.workspace.on(
-                "editor-menu",
-                (menu: Menu, editor: Editor, view: MarkdownView) => {
-                    let selection = editor.getSelection();
-                    if (selection || selection.trim().length === selection.length) {
-                        addMemu(menu, selection);
-                    }
-                }
-            )
-        );
-        // markdown 预览模式 右键菜单
-        this.registerDomEvent(document.body, "contextmenu", (evt) => {
-            if ((evt.target as HTMLElement).matchParent(".markdown-preview-view")) {
-                const selection = window.getSelection().toString().trim();
-                if (!selection) return;
-
-                evt.preventDefault();
-                let menu = new Menu();
-
-                addMemu(menu, selection);
-
-                menu.showAtMouseEvent(evt);
+    /** 停止当前学习会话并卸载面板 */
+    onunload(): void {
+        this.lingualeaf?.unload();
+        for (const type of [SEARCH_PANEL_VIEW, LEARN_PANEL_VIEW, DATA_PANEL_VIEW]) this.app.workspace.detachLeavesOfType(type);
+    }
+    /** 当前 Markdown 标题栏提供与命令相同的学习模式切换 */
+    private registerReadingActions(): void {
+        // 各个标签独立维护按钮，不再使用旧阅读器或 frontmatter 标记。
+        const update = (): void => {
+            for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+                // 只对已有文件的原生 Markdown 视图添加一次。
+                const view = leaf.view;
+                if (!(view instanceof MarkdownView) || !view.file || view.containerEl.querySelector(".lingualeaf-study-action")) continue;
+                view.addAction("languages", "切换当前文档为学习模式", () => {
+                    if (this.lingualeaf.host.sessions.has(view)) this.lingualeaf.host.stop(view);
+                    else void this.lingualeaf.enter(view).catch(report);
+                }).addClass("lingualeaf-study-action");
             }
+        };
+        this.registerEvent(this.app.workspace.on("layout-change", update));
+        this.registerEvent(this.app.workspace.on("file-open", update));
+        this.app.workspace.onLayoutReady(update);
+        this.register(() => {
+            for (const leaf of this.app.workspace.getLeavesOfType("markdown")) leaf.view.containerEl.querySelectorAll(".lingualeaf-study-action, .change-to-reading").forEach(button => button.remove());
         });
     }
-
-    // 管理所有的左键抬起
-    registerMouseup() {
-        this.registerDomEvent(document.body, "pointerup", (evt) => {
-            const target = evt.target as HTMLElement;
-            if (!target.matchParent(".stns")) {
-                // 处理普通模式
-                const funcKey = this.settings.function_key;
-                if ((funcKey === "disable" || evt[funcKey] === false)
-                    && !(this.store.searchPinned && !target.matchParent("#langr-search,#langr-learn-panel"))
-                ) return;
-
-                let selection = window.getSelection().toString().trim();
-                if (!selection) return;
-
-                evt.stopImmediatePropagation();
-                this.queryWord(selection, null, { x: evt.pageX, y: evt.pageY });
+    /** 更新白名单配置并立即应用到学习服务及词典面板 */
+    async saveSettings(settings: LeafPluginSettings): Promise<void> {
+        // 先持久化，写入失败时不让运行配置与磁盘分叉。
+        const next = readSettings(settings);
+        await this.saveData(next);
+        this.settings = next;
+        this.lingualeaf.host.settings = next.learning;
+        store.dictsChange = !store.dictsChange;
+    }
+    /** 复用已有叶子；查词在左、新词在右、单词列表在主标签区 */
+    async activateView(type: string, side: "left" | "right" | "tab"): Promise<void> {
+        // 面板已经打开时直接激活，不重复创建。
+        let leaf = this.app.workspace.getLeavesOfType(type)[0];
+        if (!leaf) {
+            // 明确按面板职责定位宿主区域。
+            const target: WorkspaceLeaf = side === "left" ? this.app.workspace.getLeftLeaf(false) : side === "right" ? this.app.workspace.getRightLeaf(false) : this.app.workspace.getLeaf("tab");
+            if (!target) throw new Error("无法创建面板");
+            leaf = target; await leaf.setViewState({ type, active: true });
+        }
+        await this.app.workspace.revealLeaf(leaf);
+    }
+    /** 监听 SR 卡片展示并保留同一标题元素的发音去重 */
+    registerReviewCardAutoPronounce() {
+        // 间隔复习弹窗和卡片内单词标题的选择器
+        const reviewCardTitleSelector = ".sr-modal-content h4, .sr-card-container .sr-content h4";
+        // 最近一次自动播放的复习标题元素，用于避免卡片内按钮变化时重复发音
+        let lastAutoPronouncedTitle: HTMLElement = null;
+        // 最近一次自动播放的单词，用于判断同一标题元素上的单词变化
+        let lastAutoPronouncedWord = "";
+        // 当前等待执行的自动发音检查任务，用于合并连续 DOM 变化
+        let reviewCardPronounceFrame: number = null;
+        // 自动播放当前可见复习卡片单词发音
+        const pronounceVisibleReviewCard = () => {
+            if (!this.settings.review_auto_pron) return;
+            // 当前页面中存在的复习卡片单词标题列表
+            const titles = Array.from(document.body.querySelectorAll<HTMLElement>(reviewCardTitleSelector));
+            // 当前可见的复习卡片单词标题
+            const title = titles.find((item) => item.offsetParent !== null);
+            if (!title) {
+                lastAutoPronouncedTitle = null;
+                lastAutoPronouncedWord = "";
                 return;
             }
-        });
-    }
 
-    // 管理所有的鼠标左击
-    registerLeftClick() {
-        this.registerDomEvent(document.body, "click", (evt) => {
-            /** 当前点击的页面元素 */
-            let target = evt.target as HTMLElement;
-            /** 是否点击了间隔复习插件中的单词标题 */
-            let isReviewCardTitle = target.tagName === "H4" && (
-                target.matchParent(".sr-modal-content") ||
-                target.matchParent(".sr-card-container .sr-content")
-            );
-            if (
-                isReviewCardTitle
-            ) {
-                /** 需要播放发音的复习单词 */
-                let word = target.textContent?.trim();
-                if (!word) return;
-
-                this.playReviewCardWord(word);
-            }
-        });
-    }
-
-    /** 注册间隔复习卡片展示时自动播放单词发音 */
-    registerReviewCardAutoPronounce() {
-        /** 间隔复习弹窗和卡片内单词标题的选择器 */
-        const reviewCardTitleSelector = ".sr-modal-content h4, .sr-card-container .sr-content h4";
-        /** 最近一次自动播放的单词，避免弹窗渲染抖动时重复播放 */
-        let lastAutoPronouncedWord = "";
-        /** 最近一次自动播放发生的时间，配合同词去重使用 */
-        let lastAutoPronouncedTime = 0;
-        /** 自动播放当前可见复习卡片单词发音 */
-        const pronounceVisibleReviewCard = () => {
-            /** 当前页面中存在的复习卡片单词标题列表 */
-            const titles = Array.from(document.body.querySelectorAll<HTMLElement>(reviewCardTitleSelector));
-            /** 当前可见的复习卡片单词标题 */
-            const title = titles.find((item) => item.offsetParent !== null);
-            if (!title) return;
-
-            /** 当前复习卡片中的单词文本 */
+            // 当前复习卡片中的单词文本
             const word = title.textContent?.trim();
             if (!word) return;
 
-            /** 当前时间戳，用于限制同一单词的短时间重复自动发音 */
-            const now = Date.now();
-            if (word === lastAutoPronouncedWord && now - lastAutoPronouncedTime < 1000) return;
+            if (title === lastAutoPronouncedTitle && word === lastAutoPronouncedWord) return;
 
+            lastAutoPronouncedTitle = title;
             lastAutoPronouncedWord = word;
-            lastAutoPronouncedTime = now;
             this.playReviewCardWord(word);
         };
-        /** 监听闪卡插件弹窗或卡片内容变化的观察器 */
+        // 安排一次自动发音检查，避免同一次页面渲染触发多次播放
+        const scheduleReviewCardPronounce = () => {
+            if (reviewCardPronounceFrame !== null) return;
+
+            reviewCardPronounceFrame = window.requestAnimationFrame(() => {
+                reviewCardPronounceFrame = null;
+                pronounceVisibleReviewCard();
+            });
+        };
+        // 监听闪卡插件弹窗或卡片内容变化的观察器
         const reviewCardObserver = new MutationObserver(() => {
-            pronounceVisibleReviewCard();
+            scheduleReviewCardPronounce();
         });
 
         reviewCardObserver.observe(document.body, {
@@ -696,72 +146,25 @@ export default class LanguageLearner extends Plugin {
             subtree: true,
             characterData: true,
         });
-        this.register(() => reviewCardObserver.disconnect());
+        this.register(() => {
+            if (reviewCardPronounceFrame !== null) {
+                window.cancelAnimationFrame(reviewCardPronounceFrame);
+            }
+
+            reviewCardObserver.disconnect();
+        });
         pronounceVisibleReviewCard();
     }
 
     /** 播放间隔复习卡片中单词的有道发音 */
     playReviewCardWord(word: string) {
-        /** 复习卡片发音使用的口音配置 */
+        // 复习卡片发音使用的口音配置
         let accent = this.settings.review_prons;
-        /** 有道单词发音音频地址 */
+        // 有道单词发音音频地址
         let wordUrl =
             `https://dict.youdao.com/dictvoice?type=${accent}&audio=` +
             encodeURIComponent(word);
         playAudio(wordUrl);
     }
 
-    async loadSettings() {
-        let settings: { [K in string]: any } = Object.assign(
-            {},
-            DEFAULT_SETTINGS
-        );
-        let data = (await this.loadData()) || {};
-        for (let key in DEFAULT_SETTINGS) {
-            let k = key as keyof typeof DEFAULT_SETTINGS;
-            if (data[k] === undefined) {
-                continue;
-            }
-
-            if (typeof DEFAULT_SETTINGS[k] === "object") {
-                Object.assign(settings[k], data[k]);
-            } else {
-                settings[k] = data[k];
-            }
-        }
-        (this.settings as any) = settings;
-        // this.settings = Object.assign(
-        //     {},
-        //     DEFAULT_SETTINGS,
-        //     await this.loadData()
-        // );
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-    }
-
-    async activateView(VIEW_TYPE: string, side: "left" | "right" | "tab") {
-        if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length === 0) {
-            let leaf;
-            switch (side) {
-                case "left":
-                    leaf = this.app.workspace.getLeftLeaf(false);
-                    break;
-                case "right":
-                    leaf = this.app.workspace.getRightLeaf(false);
-                    break;
-                case "tab":
-                    leaf = this.app.workspace.getLeaf("tab");
-                    break;
-            }
-            await leaf.setViewState({
-                type: VIEW_TYPE,
-                active: true,
-            });
-        }
-        this.app.workspace.revealLeaf(
-            this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]
-        );
-    }
 }

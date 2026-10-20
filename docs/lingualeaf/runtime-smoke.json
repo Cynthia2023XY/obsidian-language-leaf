@@ -1,0 +1,53 @@
+{
+  "testedAt": "2026-10-19T12:50:45.727Z",
+  "scope": "四命令、SR 唯一复习方式",
+  "results": [
+    {
+      "name": "只注册四条命令，未启动旧数据库、服务器或内置复习",
+      "commands": [
+        "LinguaLeaf: 切换当前文档为学习模式",
+        "LinguaLeaf: 打开单词列表",
+        "LinguaLeaf: 打开查词面板",
+        "LinguaLeaf: 打开新词面板"
+      ]
+    },
+    {
+      "name": "简化设置页只含学习、查词、发音、翻译及 SR 格式",
+      "settingRows": 14
+    },
+    {
+      "name": "原表单保存完整上下文，SR 真实加载一张随文闪卡",
+      "path": "LinguaLeaf简化验收-1792414237876.md",
+      "srCards": 1,
+      "multipleNotes": true,
+      "multipleSentences": true,
+      "outline": true
+    },
+    {
+      "name": "保留原单词表并由 SR 评分，编辑后完整保留进度",
+      "schedule": "<!--SR:!2026-10-22,3,250-->"
+    },
+    {
+      "name": "打开新词面板可手工收词，并明确固定来源文章",
+      "source": "LinguaLeaf简化验收-1792414237876.md"
+    },
+    {
+      "name": "双语阅读样式仍生效",
+      "translationStyle": true
+    }
+  ],
+  "validation": {
+    "unitTests": 36,
+    "productionBuild": "passed",
+    "cleanInstall": "passed",
+    "cleanBuild": "passed",
+    "artifactHashes": {
+      "main.js": "6b32ea2df5759e2067af2a289f6aa07ae20d1a1ede860ac6220ffdd63e5e9d6d",
+      "manifest.json": "ce480c90060a9ffb6e3ddb6b59407fc1146ea4ec8e2bb0a9a445cc89ee7ea0fe",
+      "styles.css": "f4299935a2ad6a239988e2421d008957b2ab2f54a12a3fddbeaf8b371d4bd463"
+    },
+    "testVault": "/Users/dingxinyi.2/Documents/practice/obsidian测试笔记库/新功能测试仓库/.obsidian/plugins/obsidian-language-learner",
+    "artifactHashMatch": true,
+    "runtimeDrag": "Not reverified: test window hidden; six selection unit tests passed."
+  }
+}

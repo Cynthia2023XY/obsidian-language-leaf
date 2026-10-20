@@ -1,0 +1,60 @@
+/** 中文对照块去除卡片装饰，减少对英文阅读的干扰 */
+.callout[data-callout="translation"] {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0.25em 0 1em;
+}
+
+/** 折叠入口只显示淡色箭头，保留整行点击区域 */
+.callout[data-callout="translation"] .callout-title {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  gap: 0;
+  padding: 0;
+}
+
+/** 隐藏装饰图标，保留用于展开和收起的箭头 */
+.callout[data-callout="translation"] .callout-icon {
+  display: none;
+}
+
+/** 隐藏中文入口文字，Markdown 中的标题无需删除 */
+.callout[data-callout="translation"] .callout-title-inner {
+  display: none;
+}
+
+/** 折叠箭头与正文左侧对齐，沿用原生展开和收起行为 */
+.callout[data-callout="translation"] .callout-fold {
+  margin: 0;
+  padding: 0;
+}
+
+/** 手机端增加触摸区域高度，便于点按箭头所在行 */
+body.is-mobile .callout[data-callout="translation"] .callout-title {
+  min-height: 44px;
+}
+
+/** 展开的中文以淡色竖线标记，便于区分两种语言 */
+.callout[data-callout="translation"] .callout-content {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  border-left: 2px solid var(--background-modifier-border);
+  margin-top: 0.5em;
+  padding: 0 0 0 0.8em;
+}
+
+/** 去除中文首尾段落的额外留白 */
+.callout[data-callout="translation"] .callout-content > :first-child {
+  margin-top: 0;
+}
+
+/** 中文末段不再额外撑高对照块 */
+.callout[data-callout="translation"] .callout-content > :last-child {
+  margin-bottom: 0;
+}

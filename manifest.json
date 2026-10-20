@@ -1,10 +1,10 @@
 {
-	"id": "obsidian-language-learner",
-	"name": "Language Learner",
-	"version": "0.2.8",
-	"minAppVersion": "0.12.17",
-	"description": "阅读、查词、复习、使用、统计全部合一的语言学习插件",
-	"author": "the_tree",
-	"authorUrl": "",
-	"isDesktopOnly": false
+  "id": "obsidian-language-learner",
+  "name": "Language Leaf",
+  "version": "0.2.8",
+  "minAppVersion": "1.14.4",
+  "description": "在原生 Markdown 中阅读、查询和收录词句，保存为 Spaced Repetition 闪卡。",
+  "author": "Cynthia Ding",
+  "authorUrl": "",
+  "isDesktopOnly": true
 }

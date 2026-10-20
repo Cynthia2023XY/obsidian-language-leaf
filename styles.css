@@ -444,116 +444,11 @@
 .is-mobile #langr-search input[type=text] {
   padding: 0;
 }
-.count-bar {
-  border: 2px solid black;
-  height: 20px;
-  width: 80%;
-  display: flex;
-  text-align: center;
-  color: #000;
-  cursor: pointer;
-  line-height: 1em;
-  border-radius: 10px;
-}
-.count-bar .b1 {
-  background-color: #add8e6bb;
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
-}
-.count-bar .b2 {
-  background-color: #ffa600b4;
-}
-.count-bar .b3 {
-  background-color: #d3d3d3be;
-  border-top-right-radius: 10px;
-  border-bottom-right-radius: 10px;
-}
-#langr-reading {
-  user-select: none;
-}
-#langr-reading .function-area {
-  padding-bottom: 10px;
-  border-bottom: 2px solid gray;
-}
-#langr-reading .function-area button {
-  width: auto;
-}
-#langr-reading .text-area {
-  touch-action: none;
-}
-#langr-reading .text-area span.word {
-  user-select: contain;
-  border: 1px solid transparent;
-  cursor: pointer;
-  border-radius: 4px;
-}
-#langr-reading .text-area span.word:hover {
-  border-color: #00bfff;
-}
-#langr-reading .text-area span.phrase {
-  background-color: transparent;
-  padding-top: 3px;
-  padding-bottom: 3px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 4px;
-}
-#langr-reading .text-area span.phrase:hover {
-  border-color: #00bfff;
-}
-#langr-reading .text-area span.stns {
-  border: 1px solid transparent;
-}
-#langr-reading .text-area span .new {
-  background-color: #add8e644;
-}
-#langr-reading .text-area span .learning {
-  background-color: #ff980055;
-}
-#langr-reading .text-area span .familiar {
-  background-color: #ffeb3c55;
-}
-#langr-reading .text-area span .known {
-  background-color: #9eda5855;
-}
-#langr-reading .text-area span .learned {
-  background-color: #4cb05155;
-}
-#langr-reading .text-area span.other {
-  user-select: text;
-}
-#langr-reading .text-area .select {
-  background-color: #90ee9060;
-  padding-top: 3px;
-  padding-bottom: 3px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 4px;
-}
-#langr-reading .text-area .select:hover {
-  border: 1px solid green;
-}
-#langr-reading .note-area {
-  display: flex;
-  height: 100%;
-  width: 100%;
-}
-#langr-reading .note-area .note-input {
-  flex: 1;
-}
-#langr-reading .note-area .note-rendered {
-  border: 1px solid gray;
-  border-radius: 3px;
-  flex: 1;
-  padding: 5px;
-  margin-left: 2px;
-  overflow: auto;
-}
-.is-mobile #langr-reading .pagination {
-  padding-bottom: 48px;
-}
 #langr-learn-panel {
   padding-bottom: 18px;
+}
+#langr-learn-panel .lingualeaf-outline-field {
+  margin-top: 16px;
 }
 #langr-learn-panel .n-input {
   margin: 1px 0;
@@ -570,34 +465,6 @@
 }
 #langr-learn-panel .n-dynamic-input .n-button-group button:nth-child(2) {
   border-radius: 0 0 34px 34px !important;
-}
-.word-more h2 {
-  margin: .5em 0;
-}
-.word-more .word-notes {
-  user-select: text;
-}
-.word-more .word-notes p {
-  white-space: pre-line;
-  margin: .5em 5px;
-}
-.word-more .word-sens {
-  user-select: text;
-}
-.word-more .word-sens .word-sen {
-  margin-bottom: 5px;
-  border: 1px solid gray;
-  border-radius: 5px;
-}
-.word-more .word-sens .word-sen p {
-  margin: .5em 5px;
-}
-.word-more .word-sens .word-sen p:first-child {
-  font-style: italic;
-}
-.word-more .word-sens .word-sen p:first-child em {
-  font-weight: bold;
-  color: var(--interactive-accent);
 }
 #langr-data #data-tags {
   display: flex;
@@ -629,53 +496,83 @@
 #langr-data .data-more .data-sens .data-sen p:first-child {
   font-style: italic;
 }
-#popup-search {
-  position: fixed;
+.word-more h2 {
+  margin: .5em 0;
+}
+.word-more .word-notes {
+  user-select: text;
+}
+.word-more .word-notes p {
+  white-space: pre-line;
+  margin: .5em 5px;
+}
+.word-more .word-sens {
+  user-select: text;
+}
+.word-more .word-sens .word-sen {
+  margin-bottom: 5px;
+  border: 1px solid gray;
   border-radius: 5px;
-  background-color: var(--background-secondary);
-  z-index: 1000;
-  touch-action: none;
-  box-shadow: var(--shadow-l);
 }
-#popup-search .pop-handle {
-  height: 20px;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  background-color: var(--interactive-accent);
-  cursor: move;
-  display: flex;
+.word-more .word-sens .word-sen p {
+  margin: .5em 5px;
 }
-#popup-search .pop-handle:active {
-  cursor: grab;
+.word-more .word-sens .word-sen p:first-child {
+  font-style: italic;
 }
-#popup-search .pop-handle .empty {
-  flex: 1;
+.word-more .word-sens .word-sen p:first-child em {
+  font-weight: bold;
+  color: var(--interactive-accent);
 }
-#popup-search .pop-handle .pin-button {
-  margin-right: 5px;
+
+/* src/lingualeaf/bilingual-reading.css */
+.callout[data-callout=translation] {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0.25em 0 1em;
+}
+.callout[data-callout=translation] .callout-title {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  font-weight: normal;
   display: flex;
   align-items: center;
-  cursor: pointer;
-  width: 20px;
-  justify-content: center;
+  min-height: 28px;
+  gap: 0;
+  padding: 0;
 }
-#popup-search .pop-handle .pin-button:hover {
-  background-color: #8080806a;
+.callout[data-callout=translation] .callout-icon {
+  display: none;
 }
-#popup-search .pop-handle .pin-button.pinned svg {
-  transform: rotate(45deg);
+.callout[data-callout=translation] .callout-title-inner {
+  display: none;
 }
-#popup-search .pop-body {
-  width: 450px;
+.callout[data-callout=translation] .callout-fold {
+  margin: 0;
+  padding: 0;
 }
-#popup-search .pop-body #langr-search {
-  max-height: 500px;
+body.is-mobile .callout[data-callout=translation] .callout-title {
+  min-height: 44px;
 }
-.is-mobile #popup-search .pop-body {
-  width: 350px;
+.callout[data-callout=translation] .callout-content {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  border-left: 2px solid var(--background-modifier-border);
+  margin-top: 0.5em;
+  padding: 0 0 0 0.8em;
 }
-.is-mobile #popup-search .pop-body #langr-search {
-  max-height: 300px;
+.callout[data-callout=translation] .callout-content > :first-child {
+  margin-top: 0;
+}
+.callout[data-callout=translation] .callout-content > :last-child {
+  margin-bottom: 0;
 }
 
 /* src/main.css */
+.lingualeaf-reading .view-header-title::after {
+  content: " \b7  Language Leaf";
+  color: var(--text-accent);
+  font-size: .8em;
+}

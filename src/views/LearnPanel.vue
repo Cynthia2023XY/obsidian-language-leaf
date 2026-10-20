@@ -2,7 +2,8 @@
 	<div id="langr-learn-panel">
 		<NConfigProvider :theme="theme" :theme-overrides="themeOverrides">
 			<!-- <NThemeEditor> -->
-			<NForm :model="model" label-placement="top" label-width="auto" :rules="rules"
+			<p v-if="!leafCapture">请先打开要保存词句的 Markdown 文章，再打开新词面板。</p>
+            <NForm :model="model" label-placement="top" label-width="auto" :rules="rules"
 				require-mark-placement="right-hanging">
 				<!-- 一个单词或短语字符串 -->
 				<NFormItem :label="t('Expression')" :label-style="labelStyle" path="expression">
@@ -81,11 +82,15 @@
 						</div>
 					</template>
 				</NDynamicInput>
+                <!-- 仅原生文章收录增加大纲字段，其余沿用原表单控件 -->
+                <NFormItem v-if="leafCapture" class="lingualeaf-outline-field" label="文章概览（收录时快照）">
+                    <NInput size="small" type="textarea" v-model:value="leafOutline" autosize />
+                </NFormItem>
 			</NForm>
 			<!-- 提交按钮 -->
 			<div style="margin-top: 10px">
 				<NButton size="small" style="--n-width: 100%" attr-type="submit" @click="submit"
-					:loading="submitLoading">
+					:loading="submitLoading" :disabled="!leafCapture">
 					<NIconWrapper v-if="successing" :size="18" :border-radius="6" style="margin-right: 6px;">
 						<NIcon :size="16">
 							<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 16 16">
@@ -117,365 +122,109 @@
 
 <script setup lang="ts">
 import { Notice } from "obsidian";
-import {
-	ref,
-	onMounted,
-	onUnmounted,
-	getCurrentInstance,
-	computed,
-	CSSProperties,
-} from "vue";
-import {
-	NIcon,
-	NIconWrapper,
-	NForm,
-	NFormItem,
-	NInput,
-	NRadio,
-	NRadioButton,
-	NRadioGroup,
-	NButton,
-	NDynamicInput,
-	NSelect,
-	SelectOption,
-	NConfigProvider,
-	// NThemeEditor,
-	darkTheme,
-	GlobalThemeOverrides,
-} from "naive-ui";
-
-import { ExpressionInfo, Sentence } from "@/db/interface";
+import { ref, shallowRef, computed, getCurrentInstance, onUnmounted } from "vue";
+import type { CSSProperties } from "vue";
+import { NIcon, NIconWrapper, NForm, NFormItem, NInput, NRadio, NRadioButton, NRadioGroup, NButton, NDynamicInput, NSelect, NConfigProvider, darkTheme } from "naive-ui";
+import type { GlobalThemeOverrides, SelectOption } from "naive-ui";
+import type Plugin from "@/plugin";
+import type { ExpressionInfo } from "@/lingualeaf/panel-model";
+import type { PanelCapture } from "@/lingualeaf/runtime";
 import { t } from "@/lang/helper";
 import { useEvent } from "@/utils/use";
-import { LearnPanelView } from "./LearnPanelView";
-import { ReadingView } from "./ReadingView";
-import Plugin from "@/plugin";
 import { search } from "@dict/youdao/engine";
 import store from "@/store";
 
-const view: LearnPanelView =
-	getCurrentInstance().appContext.config.globalProperties.view;
-const plugin: Plugin =
-	getCurrentInstance().appContext.config.globalProperties.plugin;
+/** 当前新词面板所属插件 */
+const plugin = getCurrentInstance().appContext.config.globalProperties.plugin as Plugin;
+/** 固定保存文章的收词请求，不能被 Vue 转为另一份代理身份 */
+const leafCapture = shallowRef<PanelCapture | null>(null);
+/** 原文大纲的收录快照 */
+const leafOutline = ref("");
+/** 与原表单相同的词句、标签、笔记和例句模型 */
+const model = ref<ExpressionInfo>({ expression: "", meaning: "", status: 1, t: "WORD", tags: [], notes: [], sentences: [] });
+/** 隔离连续查询和关闭面板后的异步翻译响应 */
+let lookupSequence = 0;
+/** 自动适配 Obsidian 的明暗主题 */
+const theme = computed(() => store.dark ? darkTheme : null);
+/** 沿用原新词面板的控件字号、间距与动态输入布局 */
+const themeOverrides: GlobalThemeOverrides = { Form: { labelFontSizeTopMedium: "15px", feedbackFontSizeMedium: "13px", blankHeightMedium: "5px", feedbackHeightMedium: "22px" }, Radio: { buttonBorderRadius: "5px", fontSizeMedium: "13px", fontSizeSmall: "13px", buttonHeightSmall: "22px" }, Input: { fontSizeSmall: "12px", paddingSmall: "0 5px" }, DynamicInput: { actionMargin: "0 0 0 5px" } };
+/** 表单字段验证规则 */
+const rules = { expression: { required: true, trigger: ["blur", "input"], message: t("Please input a word/phrase") }, meaning: { required: true, trigger: ["blur", "input"], message: t("A short definition is needed") } };
+/** 例句的原文字段不得为空 */
+const sourceRule = { required: true, trigger: ["blur", "input"], message: "请填写原文例句" };
+/** 保持原表单标签的强调方式 */
+const labelStyle: CSSProperties = { fontWeight: "bold" };
+/** 词句的五档学习状态，与 SR 调度进度互相独立 */
+const status = ["Ignore", "Learning", "Familiar", "Known", "Learned"].map(key => ({ text: t(key) }));
+/** 标签输入的候选集合 */
+const tagOptions = ref<SelectOption[]>([]);
+/** 标签扫描期间的加载状态 */
+const tagLoading = ref(false);
+/** 提交期间阻止重复保存 */
+const submitLoading = ref(false);
+/** 保存成功的原表单图标状态 */
+const successing = ref(false);
+/** 保存失败的原表单图标状态 */
+const failing = ref(false);
+/** 清理反馈图标的定时器 */
+let feedbackTimer: ReturnType<typeof setTimeout>;
 
-// 切换明亮/黑暗模式
-const theme = computed(() => {
-	return store.dark ? darkTheme : null;
-});
-
-// 样式设置
-const themeOverrides: GlobalThemeOverrides = {
-	common: {},
-	Form: {
-		labelFontSizeTopMedium: "15px",
-		feedbackFontSizeMedium: "13px",
-		blankHeightMedium: "5px",
-		feedbackHeightMedium: "22px",
-	},
-	Radio: {
-		buttonBorderRadius: "5px",
-		fontSizeMedium: "13px",
-		fontSizeSmall: "13px",
-		buttonHeightSmall: "22px",
-	},
-	Input: {
-		fontSizeSmall: "12px",
-		paddingSmall: "0 5px",
-	},
-	DynamicInput: {
-		actionMargin: "0 0 0 5px",
-	},
-};
-
-//表单数据
-let model = ref<ExpressionInfo>({
-	expression: null,
-	meaning: null,
-	status: 0,
-	t: "WORD",
-	tags: [],
-	notes: [],
-	sentences: [],
-});
-
-// 表单检查规则
-let rules = {
-	expression: {
-		required: true,
-		trigger: ["blur", "input"],
-		message: t("Please input a word/phrase"),
-	},
-	meaning: {
-		required: true,
-		trigger: ["blur", "input"],
-		message: t("A short definition is needed"),
-	},
-	t: {
-		required: true,
-		trigger: "change",
-		message: "Expression can be a word or phrase",
-	},
-	status: {
-		required: true,
-	},
-};
-
-let sourceRule = {
-	required: true,
-	trigger: ["blur", "input"],
-	message: "At least input a source sentence",
-};
-
-let labelStyle: CSSProperties = {
-	// fontSize: "16px",
-	fontWeight: "bold",
-	// padding: "0 0 8px 2px",
-};
-
-function onCreateSentence() {
-	return {
-		text: "",
-		trans: "",
-		origin: "",
-	};
+/** 在原动态输入组件中新增一条例句 */
+function onCreateSentence() { return { text: "", trans: "", origin: "" }; }
+/** 从当前随文词库读取标签候选，不读取旧数据库 */
+async function tagSearch(query: string): Promise<void> {
+    tagLoading.value = true;
+    try {
+        // 标签只来自当前已经持久化的 SR 词条。
+        const cards = await plugin.lingualeaf.host.scan();
+        tagOptions.value = [...new Set(cards.flatMap(item => item.card.tags || []))].filter(tag => tag.includes(query)).map(value => ({ label: value, value }));
+    } finally { tagLoading.value = false; }
 }
-
-// 单词状态样式
-const status = [
-	{ text: t("Ignore"), style: "" },
-	{ text: t("Learning"), style: "background-Color: #ff980055" },
-	{ text: t("Familiar"), style: "background-Color: #ffeb3c55" },
-	{ text: t("Known"), style: "background-Color: #9eda5855" },
-	{ text: t("Learned"), style: "background-Color: #4cb05155" },
-];
-
-
-// 异步获取数据库中所有tag
-let tagOptions = ref<SelectOption[]>([]);
-let tagLoading = ref(false);
-let tags: string[] = [];
-
-async function tagSearch(query: string) {
-	tagLoading.value = true;
-	if (query.length < 2) {
-		tags = await plugin.db.getTags();
-	}
-	tagLoading.value = false;
-
-	if (!query.length) {
-		tagOptions.value = tags.map((v) => {
-			return { label: v, value: v };
-		});
-		return;
-	}
-	tagOptions.value = tags
-		.filter((v) => ~v.indexOf(query))
-		.map((v) => {
-			return { label: v, value: v };
-		});
+/** 固定文章来源并填充原表单；优先使用已有中文对照 */
+async function fill(request?: PanelCapture): Promise<void> {
+    // 后发查询会使旧翻译响应失效。
+    const sequence = ++lookupSequence;
+    leafCapture.value = request || null;
+    model.value = request ? JSON.parse(JSON.stringify(request.model)) : { expression: "", meaning: "", status: 1, t: "WORD", tags: [], notes: [], sentences: [] };
+    leafOutline.value = request?.card.outline || "";
+    if (!request || !plugin.settings.use_machine_trans || !request.card.language.startsWith("en") || !model.value.sentences[0]?.text || model.value.sentences[0].trans) return;
+    try {
+        // 原文缺少译文且用户允许机器翻译时，沿用有道的段落翻译能力。
+        const response = await search(model.value.sentences[0].text);
+        if (sequence !== lookupSequence || !request.valid() || model.value.sentences[0]?.trans) return;
+        // 第三方结果只填充纯文本，不把 HTML 插入笔记。
+        const html = (response?.result as any)?.translation;
+        if (typeof html === "string") model.value.sentences[0].trans = new DOMParser().parseFromString(html, "text/html").querySelectorAll("p")[1]?.textContent || "";
+    } catch { /* 网络失败不阻止用户手工收录 */ }
 }
-
-// 提交信息到数据库的加载状态
-let successing = ref(false);
-async function success() {
-	successing.value = true;
-	await sleep(2000)
-	successing.value = false;
+/** 所有提交都保存到指定文章的 SR 闪卡，并保留当前 SR 调度注释 */
+async function submit(): Promise<void> {
+    if (!leafCapture.value) { new Notice("请先打开要保存词句的 Markdown 文章，再打开新词面板"); return; }
+    if (!model.value.expression?.trim() || !model.value.meaning?.trim()) { new Notice("请填写词句和释义"); return; }
+    submitLoading.value = true; successing.value = false; failing.value = false;
+    try {
+        await plugin.lingualeaf.saveCapture(leafCapture.value, JSON.parse(JSON.stringify(model.value)), leafOutline.value);
+        successing.value = true;
+    } catch (error) { failing.value = true; new Notice(error instanceof Error ? error.message : String(error)); }
+    finally {
+        submitLoading.value = false; clearTimeout(feedbackTimer);
+        feedbackTimer = setTimeout(() => { successing.value = false; failing.value = false; }, 1600);
+    }
 }
-let failing = ref(false);
-async function fail() {
-	failing.value = true;
-	await sleep(2000)
-	failing.value = false;
-}
-
-/** 将文章来源和当前笔记标题组合成例句出处 */
-function formatSentenceOrigin(origin: string, noteTitle: string): string {
-	/** 清理后的文章来源名称 */
-	const normalizedOrigin = origin?.trim() ?? "";
-	/** 清理后的当前笔记标题 */
-	const normalizedNoteTitle = noteTitle?.trim() ?? "";
-	if (!normalizedNoteTitle) {
-		return normalizedOrigin;
-	}
-	return `${normalizedOrigin}\n${normalizedNoteTitle}`;
-}
-
-let submitLoading = ref(false);
-
-async function submit() {
-	// 表单内容检查
-	if (!model.value.expression) {
-		new Notice(t("Expression is empty!"));
-		return;
-	}
-	if (!model.value.meaning) {
-		new Notice(t("Meaning is empty!"));
-		return;
-	}
-	if (
-		model.value.expression.trim().split(" ").length > 1 &&
-		model.value.t === "WORD"
-	) {
-		new Notice(t("It looks more like a PHRASE than a WORD"));
-		return;
-	}
-
-	submitLoading.value = true;
-	let data = JSON.parse(JSON.stringify(model.value));
-	(data as any).expression = (data as any).expression.trim().toLowerCase();
-	// 超过1条例句时，sentences中的对象会变成Proxy，尚不知原因，因此用JSON转换一下
-	let statusCode = await plugin.db.postExpression(data);
-	submitLoading.value = false;
-
-	if (statusCode !== 200) {
-		new Notice("Submit failed");
-		console.warn("Submit failed, please check server status");
-		fail();
-		return;
-	}
-	
-	success()
-
-	dispatchEvent(
-		new CustomEvent("obsidian-langr-refresh", {
-			detail: {
-				expression: model.value.expression,
-				type: model.value.t,
-				status: model.value.status,
-			},
-		})
-	);
-	dispatchEvent(new CustomEvent("obsidian-langr-refresh-stat"));
-
-	//自动刷新数据库
-	if (plugin.settings.auto_refresh_db) {
-		// setTimeout(() => {
-		plugin.refreshTextDB();
-		// }, 0);
-	}
-}
-
-// 查询词汇时自动填充新词表单
-useEvent(window, "obsidian-langr-search", async (evt: CustomEvent) => {
-	let selection = evt.detail.selection as string;
-	let expr = await plugin.db.getExpression(selection);
-
-	let exprType = "WORD";
-	if (selection.trim().contains(" ")) {
-		exprType = "PHRASE";
-	}
-
-	let target = evt.detail.target as HTMLElement;
-
-	let sentenceText = "";
-	let storedSen: Sentence = null;
-	let defaultOrigin: string = null;
-	/** 当前阅读文章所在笔记的标题 */
-	let noteTitle = "";
-	let filledTrans = null;
-
-	if (target) {
-		let sentenceEl = target.parentElement.hasClass("stns")
-			? target.parentElement
-			: target.parentElement.parentElement;
-		sentenceText = sentenceEl.textContent;
-
-		storedSen = await plugin.db.tryGetSen(sentenceText);
-
-		let reading = view.app.workspace.getActiveViewOfType(ReadingView);
-
-		if (reading) {
-			/** 当前阅读文章配置的外部来源名称 */
-			let presetOrigin = view.app.metadataCache.getFileCache(reading.file)
-				.frontmatter["langr-origin"];
-			noteTitle = reading.file.basename;
-			defaultOrigin = formatSentenceOrigin(
-				presetOrigin ? presetOrigin : reading.file.name,
-				noteTitle
-			);
-		}
-
-		if (plugin.settings.use_machine_trans) {
-			try {
-				let res = await search(sentenceText);
-				if (res && (res.result as any).translation) {
-					let html = (res.result as any).translation as string;
-					filledTrans =
-						html
-							.match(/<p>([^<>]+)<\/p>/g)[1]
-							?.match(/<p>(.*)<\/p>/)[1] ?? null;
-				}
-			} catch (e) {
-				filledTrans = "";
-			}
-		}
-	}
-
-	if (expr) {
-		if (sentenceText) {
-			if (!storedSen) {
-				expr.sentences = expr.sentences.concat({
-					text: sentenceText,
-					trans: filledTrans,
-					origin: defaultOrigin,
-				});
-			} else {
-				let added = expr.sentences.find(
-					(sen) => sen.text === sentenceText
-				);
-				if (!added) {
-					expr.sentences = expr.sentences.concat({
-						...storedSen,
-						origin: defaultOrigin || storedSen.origin,
-					});
-				}
-			}
-		}
-		model.value = expr;
-		return;
-	} else {
-		if (!target) {
-			model.value = {
-				expression: selection,
-				meaning: "",
-				status: 1,
-				t: exprType,
-				tags: [],
-				notes: [],
-				sentences: [],
-			};
-			return;
-		}
-
-		model.value = {
-			expression: selection,
-			meaning: "",
-			status: 1,
-			t: exprType,
-			tags: [],
-			notes: [],
-			sentences: storedSen
-				? [{
-					...storedSen,
-					origin: defaultOrigin || storedSen.origin,
-				}]
-				: [
-					{
-						text: sentenceText,
-						trans: filledTrans,
-						origin: defaultOrigin,
-					},
-				],
-		};
-	}
-});
-
+useEvent(window, "obsidian-langr-search", event => { void fill(event.detail.leafCapture); });
+useEvent(window, "lingualeaf-clear-capture", () => { void fill(); });
+onUnmounted(() => { ++lookupSequence; clearTimeout(feedbackTimer); });
+void fill(plugin.lingualeaf.capture);
 </script>
 
 <style lang="scss">
 #langr-learn-panel {
 	padding-bottom: 18px;
+
+	/* 留出例句与文章概览之间的阅读间距 */
+	.lingualeaf-outline-field {
+		margin-top: 16px;
+	}
 
 	.n-input {
 		margin: 1px 0;

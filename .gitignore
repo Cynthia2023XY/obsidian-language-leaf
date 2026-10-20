@@ -26,3 +26,5 @@ data.json
 pdf
 
 .joycode
+# 本地插件安装包
+/dist/
