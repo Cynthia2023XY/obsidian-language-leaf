@@ -13,6 +13,10 @@ export interface FilePort {
 export interface CaptureOperation {
     /** 幂等操作身份 */
     id: string;
+    /** 主动收录请求身份；编辑及自动恢复不会产生新的身份 */
+    captureId?: string;
+    /** 首次记录计数前已存在的卡片保留一次收录基数 */
+    legacyCapture?: boolean;
     /** 目标文章路径 */
     path: string;
     /** 用户确认过的收词数据 */
@@ -40,8 +44,8 @@ export class LearningStore {
     async capture(operation: CaptureOperation): Promise<void> {
         await this.port.write(`${this.root}/operations/${operation.id}.json`, JSON.stringify({ schema: 1, ...operation }, null, 2));
     }
-    /** 查找上次中断的收词操作，损坏文件不静默跳过 */
-    async pending(): Promise<CaptureOperation[]> {
+    /** 读取持久操作记录，已完成记录用于重建收录次数 */
+    async operations(): Promise<CaptureOperation[]> {
         // 获取独立操作文件，支持程序重启后恢复。
         const paths = await this.port.list(`${this.root}/operations/`);
         // 每个文件需带可识别的版本，避免未来版本被旧代码改写。
@@ -51,6 +55,10 @@ export class LearningStore {
             if (!value || value.schema !== 1 || typeof value.id !== "string" || typeof value.path !== "string") throw new Error(`收词操作损坏：${path}`);
             return value as CaptureOperation;
         }));
-        return values.filter(value => !value.done);
+        return values;
+    }
+    /** 查找待恢复意图，完成的计数记录不会重复执行 */
+    async pending(): Promise<CaptureOperation[]> {
+        return (await this.operations()).filter(value => !value.done);
     }
 }

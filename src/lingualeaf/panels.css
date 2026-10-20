@@ -1,0 +1,97 @@
+/* 三个插件区域只使用宿主语义色，兼容深浅色及第三方主题。 */
+.ll-panel { color: var(--text-normal); font-size: var(--font-ui-small); line-height: 1.55; min-width: 0; }
+.ll-panel .ll-muted { color: var(--text-muted); }
+.ll-panel .ll-small { font-size: var(--font-ui-smaller); }
+.ll-panel .ll-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.ll-panel .ll-icon svg { width: 16px; height: 16px; }
+.ll-panel .ll-panel-heading { display: flex; align-items: center; gap: 8px; font-size: var(--font-ui-small); font-weight: 500; margin-bottom: 16px; }
+.ll-panel button.ll-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; background: transparent; border: 0; box-shadow: none; color: var(--text-muted); padding: 6px; min-width: 28px; height: 30px; border-radius: var(--radius-s); }
+.ll-panel button.ll-icon-button:hover:not(:disabled) { background: var(--background-modifier-hover); color: var(--text-normal); }
+.ll-panel button.ll-icon-button:disabled { opacity: .35; }
+.ll-panel button.ll-text-button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 0; border: 0; box-shadow: none; background: transparent; color: var(--text-accent); font: inherit; }
+.ll-panel button.ll-text-button:hover { text-decoration: underline; }
+.ll-panel .ll-empty { margin: 24px 0; color: var(--text-muted); font-size: var(--font-ui-small); }
+.ll-panel :is(button, summary, a, input, select, textarea):focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+
+/* 左侧保留原词典内容，搜索与分组用轻量边界组织。 */
+#langr-search { width: 100%; height: 100%; overflow: auto; user-select: text; padding: 4px; }
+#langr-search .ll-search-bar { display: flex; align-items: center; gap: 4px; margin: 0 0 20px; }
+#langr-search .ll-search-bar .n-input { flex: 1; min-width: 0; }
+#langr-search .ll-query-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+#langr-search .ll-query-heading h2 { font-size: 22px; font-weight: 600; line-height: 1.3; margin: 0; overflow-wrap: anywhere; }
+#langr-search .dict-item { border-bottom: 1px solid var(--background-modifier-border); padding: 12px 0; }
+#langr-search .dict-item-header { display: flex; align-items: center; gap: 6px; padding: 2px 0; color: var(--text-normal); font-size: var(--font-ui-small); font-weight: 500; list-style: none; }
+#langr-search .dict-item-header::-webkit-details-marker { display: none; }
+#langr-search .dict-item-header > .ll-icon { color: var(--text-muted); }
+#langr-search .dict-item[open] > .dict-item-header > .ll-icon { transform: rotate(90deg); }
+#langr-search .dict-item-header > span:last-child { margin-left: auto; }
+#langr-search .dict-item-body { padding: 12px 0 4px; overflow-wrap: anywhere; }
+#langr-search .dict-item-body :is(h2, h3) { color: var(--text-normal); font-size: 18px; font-weight: 600; }
+#langr-search .dict-item-body :is(p, li) { line-height: 1.65; }
+#langr-search #youdao > h2 { display: none; }
+#langr-search :is(#youdao, #cambridge, #jukuu, #hjdict) { font-size: inherit; }
+#langr-search :is(.pron, .speaker, .dpron-i .region) { color: var(--text-accent); }
+#langr-search #youdao :is(.collinsMajorTrans, .wt-container), #langr-search #cambridge .daccord { color: var(--text-normal); background: var(--background-secondary); border-radius: var(--radius-s); }
+#langr-search #youdao .collinsMajorTrans .additional, #langr-search #jukuu .jukuu-ori { color: var(--text-muted); }
+#langr-search #youdao .exampleLists { border-left-color: var(--background-modifier-border); }
+#langr-search #cambridge :is(.dwl, .dxref) { border-color: var(--background-modifier-border); }
+#langr-search #cambridge .dxref { color: var(--text-muted); background: var(--background-secondary); }
+#langr-search #cambridge li.dexamp.eg::marker { color: var(--text-muted); }
+#langr-search #jukuu .jukuu-sen p b { color: var(--text-accent); }
+#langr-search #hjdict .detail-tags-en li { background: var(--background-secondary); color: var(--text-muted); }
+#langr-search .dict-item-body .tabs { border-bottom: 1px solid var(--background-modifier-border); }
+#langr-search .dict-item-body .tabs :is(button, label) { background: transparent; color: var(--text-muted); border-radius: 0; }
+
+/* 右侧统一字段节奏，例句用细侧线，附加上下文按需展开。 */
+#langr-learn-panel { padding: 4px 4px 20px; }
+#langr-learn-panel .n-form-item-label { font-size: var(--font-ui-smaller); font-weight: 500; padding-bottom: 6px; }
+#langr-learn-panel .n-form-item { margin-bottom: 2px; }
+#langr-learn-panel .ll-capture-meta { display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+#langr-learn-panel .ll-count-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+#langr-learn-panel .ll-field-label { font-size: var(--font-ui-smaller); color: var(--text-muted); font-weight: 500; }
+#langr-learn-panel .ll-section-heading, #langr-learn-panel .ll-example-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: var(--font-ui-smaller); }
+#langr-learn-panel .ll-section-heading { color: var(--text-muted); font-weight: 500; margin: 0 0 8px; }
+#langr-learn-panel .ll-example { padding: 0 0 4px 12px; border-left: 2px solid var(--background-modifier-border); margin-bottom: 16px; }
+#langr-learn-panel .ll-example .n-form-item { margin-bottom: 10px; }
+#langr-learn-panel .ll-example-heading { margin-bottom: 8px; }
+#langr-learn-panel .ll-optional { border-top: 1px solid var(--background-modifier-border); margin-top: 16px; padding-top: 12px; }
+#langr-learn-panel .ll-optional summary { display: flex; align-items: center; gap: 6px; list-style: none; font-size: var(--font-ui-smaller); font-weight: 500; }
+#langr-learn-panel .ll-optional summary::-webkit-details-marker { display: none; }
+#langr-learn-panel .ll-optional summary .ll-muted { margin-left: auto; font-weight: 400; }
+#langr-learn-panel .ll-optional[open] summary > .ll-icon { transform: rotate(90deg); }
+#langr-learn-panel .ll-optional > .n-input, #langr-learn-panel .ll-note-row { margin-top: 12px; }
+#langr-learn-panel .ll-note-row { display: flex; align-items: flex-start; gap: 6px; }
+#langr-learn-panel .ll-capture-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+#langr-learn-panel .ll-save-card { padding-inline: 14px; }
+
+/* 主标签页采用清晰的表达/来源层级与不抢眼的表格边界。 */
+#langr-data { padding: 12px 8px; }
+#langr-data .ll-library-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+#langr-data .ll-library-heading h2 { font-size: 20px; font-weight: 600; margin: 0; }
+#langr-data .ll-library-heading h2 span { margin-left: 8px; font-weight: 400; }
+#langr-data .ll-library-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+#langr-data .ll-library-filters > .n-input { flex: 1 1 240px; min-width: 160px; }
+#langr-data .ll-library-filters > .n-select { flex: 0 1 180px; min-width: 140px; }
+#langr-data .ll-library-filters select { font-size: var(--font-ui-smaller); max-width: 100%; }
+#langr-data .ll-expression-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-weight: 500; }
+#langr-data .ll-expression-title .ll-small { font-weight: 400; font-size: 11px; }
+#langr-data .ll-source-link { display: block; margin-top: 4px; font-size: var(--font-ui-smaller); color: var(--text-muted); text-decoration: none; overflow-wrap: anywhere; }
+#langr-data .ll-source-link:hover { color: var(--text-accent); text-decoration: underline; }
+#langr-data .ll-count-badge { display: inline-block; font-size: var(--font-ui-smaller); color: var(--text-accent); background: var(--background-secondary); border-radius: var(--radius-s); padding: 2px 7px; white-space: nowrap; }
+#langr-data .ll-row-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+#langr-data .ll-date { white-space: nowrap; }
+#langr-data .n-data-table-th { font-weight: 500; color: var(--text-muted); }
+#langr-data .n-data-table-td { vertical-align: top; }
+#langr-data .n-data-table__pagination { justify-content: flex-end; }
+#langr-data .ll-row-menu { min-width: 24px; }
+#langr-data .ll-word-details { padding: 4px 12px 12px; user-select: text; white-space: pre-line; overflow-wrap: anywhere; }
+#langr-data .ll-word-details p { margin: 6px 0; }
+#langr-data .ll-word-example { border-left: 2px solid var(--background-modifier-border); padding-left: 12px; margin-bottom: 16px; }
+@media (max-width: 600px) { #langr-data { padding: 4px; } #langr-data .ll-library-filters > .n-select { flex: 1 1 140px; } }
+@media (pointer: coarse) { .ll-panel button.ll-icon-button { min-height: 40px; min-width: 40px; } }
+
+#langr-search .ll-dict-tabs { display: flex; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--background-modifier-border); margin: 12px 0; }
+#langr-search .ll-dict-tabs button { border: 0; border-radius: 0; box-shadow: none; background: transparent; color: var(--text-muted); font-size: var(--font-ui-smaller); padding: 6px 0 8px; height: auto; }
+#langr-search .ll-dict-tabs button[aria-pressed="true"] { color: var(--text-accent); border-bottom: 2px solid var(--interactive-accent); }
+#langr-search .speaker { background-color: var(--text-accent); }
+#langr-search #hjdict h2 { border-color: var(--background-modifier-border); }

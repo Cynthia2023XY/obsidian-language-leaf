@@ -50,7 +50,7 @@ return true;
 `);
     const settings = await evaluate(`
 const text=app.setting.activeTab.containerEl.textContent;
-for(const label of ['学习语言','划词修饰键','查词词典','Spaced Repetition 闪卡','保存设置'])if(!text.includes(label))throw new Error('缺少配置：'+label);
+for(const label of ['学习语言','划词修饰键','查词词典','Spaced Repetition 闪卡','更改自动保存并生效。'])if(!text.includes(label))throw new Error('缺少配置：'+label);
 for(const label of ['使用服务器','IndexDB','数据库名称','内置复习','每日新卡','迁移','恢复学习备份'])if(text.includes(label))throw new Error('仍有旧配置：'+label);
 const count=app.setting.activeTab.containerEl.querySelectorAll('.setting-item').length;
 app.setting.close();return {settingRows:count};
@@ -95,7 +95,7 @@ return right.view.containerEl.querySelectorAll('textarea').length>0;
     assert.ok(captured,'没有在原有左右面板呈现收词');
     await evaluate(`
 const runtime=app.plugins.plugins['obsidian-language-learner'].lingualeaf;const request=runtime.capture;
-request.model.notes=['第一条笔记','第二条笔记'];request.model.sentences.push({text:'Another bookmark.',trans:'另一枚书签。',origin:'补充来源'});request.model.tags=['简化验收'];request.model.status=4;
+request.model.notes=['第一条笔记','第二条笔记'];request.model.sentences.push({text:'Another bookmark.',trans:'另一枚书签。',origin:'补充来源'});request.model.tags=['简化验收'];
 window.dispatchEvent(new CustomEvent('obsidian-langr-search',{detail:{selection:request.card.text,leafCapture:request}}));return true;
 `);
     await evaluate(`
@@ -110,7 +110,7 @@ const panel=app.workspace.getLeavesOfType('langr-learn-panel')[0].view.container
     assert.ok(saved,'真实新词表单没有保存到文章');
     const sr = await evaluate(`
 const plugin=app.plugins.plugins['obsidian-language-learner'];const item=(await plugin.lingualeaf.host.scan()).find(item=>item.path===window.__leafSimple.path);
-if(!item||item.card.owner!=='spaced-repetition'||item.card.noteEntries.length!==2||item.card.sentences.length!==2||item.card.status!=='learned')throw new Error('随文表单数据丢失');
+if(!item||item.card.owner!=='spaced-repetition'||item.card.noteEntries.length!==2||item.card.sentences.length!==2||item.captureCount!==1)throw new Error('随文表单数据丢失');
 const note=await app.plugins.plugins['obsidian-spaced-repetition']._dataManager.loadNote(window.__leafSimple.file);
 if(note.questionList.length!==1||!note.questionList[0].cards[0].back.includes(item.card.outline))throw new Error('真实 SR 没有正确读取闪卡或大纲');
 window.__leafSimple.card=item.card;

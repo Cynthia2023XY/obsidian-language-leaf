@@ -8,10 +8,9 @@
         </div>
         <div class="meaning" style="margin-bottom: 10px;" v-html="meaningHTML"></div>
         <div class="translation" v-html="translationHTML" />
-        <button v-for="sub in ['柯林斯', '辨析', '词组', '同根词']" @click="curPanel = sub"
-            :style="curPanel === sub ? 'background-color:#483699;color:white;' : ''">
-            {{ sub }}
-        </button>
+        <div class="ll-dict-tabs" role="group" aria-label="释义分类">
+            <button type="button" v-for="sub in ['柯林斯', '辨析', '词组', '同根词']" @click="curPanel = sub" :aria-pressed="curPanel === sub">{{ sub }}</button>
+        </div>
         <Collins class="collins" v-if="curPanel === '柯林斯'" :mydata="collins" />
         <div class="discrimination" v-else-if="curPanel === '辨析'" v-html="discriminationHTML"></div>
         <div class="word-group" v-else-if="curPanel === '词组'" v-html="wordGroupHTML"></div>

@@ -22,8 +22,6 @@ export interface LeafCard {
     anchor: string;
     /** 单词与短语的用户选择 */
     kind: "word" | "phrase";
-    /** 词条学习状态，与复习排程相互独立 */
-    status?: "learning" | "familiar" | "known" | "ignored" | "learned";
     /** 用户管理词条的标签 */
     tags?: string[];
     /** 原新词表单的多条笔记，保留逐条编辑结构 */

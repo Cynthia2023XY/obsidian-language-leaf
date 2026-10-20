@@ -24,6 +24,10 @@ export interface PanelCapture {
     card: LeafCard;
     /** 表单可编辑的原有词条结构 */
     model: ExpressionInfo;
+    /** 从词库进入的编辑不增加收录次数 */
+    isEdit: boolean;
+    /** 打开表单时同词累计的收录次数 */
+    captureCount: number;
     /** 会话有效性检查 */
     valid: () => boolean;
 }
@@ -177,13 +181,15 @@ export class LinguaLeafRuntime {
         if (valid()) await this.openCapture(session.file, selected.trim(), context, valid, existing?.card, matches[0]?.card);
     }
     /** 使用原查词和新词 Vue 面板呈现查询，不创建独立收录弹窗 */
-    async openCapture(file: TFile, selected: string, context: ArticleContext, valid: () => boolean, existing?: LeafCard, seed?: LeafCard, showSearch = true): Promise<void> {
+    async openCapture(file: TFile, selected: string, context: ArticleContext, valid: () => boolean, existing?: LeafCard, seed?: LeafCard, showSearch = true, isEdit = false): Promise<void> {
         // 在激活面板前冻结来源，右侧表单始终保存到该文件。
         const card: LeafCard = existing || { id: newId(), expressionId: seed?.expressionId || newId(),
             text: selected, language: this.host.language(file), meaning: seed?.meaning || "", kind: /\s/.test(selected) ? "phrase" : "word",
-            ...context, notes: "", status: seed?.status || "learning", tags: seed?.tags || [], owner: "spaced-repetition" };
+            ...context, notes: "", tags: seed?.tags || [], owner: "spaced-repetition" };
+        // 按规范化表达统计，单纯查词并不增加历史计数。
+        const indexed = (await this.host.scan()).find(item => expressionKey(item.card.language, item.card.text) === expressionKey(card.language, card.text));
         // 唯一请求身份隔离快速连续查询和旧表单提交。
-        const request: PanelCapture = { id: newId(), file, context, card, model: cardToForm(card, file.basename), valid };
+        const request: PanelCapture = { id: newId(), file, context, card, isEdit, captureCount: indexed?.captureCount || 0, model: cardToForm(card, file.basename), valid };
         this.capture = request;
         if (showSearch) await this.plugin.activateView(SEARCH_PANEL_VIEW, "left");
         await this.plugin.activateView(LEARN_PANEL_VIEW, "right");
@@ -202,7 +208,7 @@ export class LinguaLeafRuntime {
         const file = this.plugin.app.vault.getAbstractFileByPath(path);
         if (!(file instanceof TFile)) throw new Error("来源文章已删除");
         await this.openCapture(file, card.text, { sentence: card.sentence, translation: card.translation, outline: card.outline, anchor: card.anchor },
-            () => this.alive && this.plugin.app.vault.getAbstractFileByPath(file.path) === file, card);
+            () => this.alive && this.plugin.app.vault.getAbstractFileByPath(file.path) === file, card, undefined, true, true);
     }
     /** 手工收词仍须绑定一篇文章，所有内容最终保存为随文 SR 闪卡 */
     async openNewWordPanel(): Promise<void> {
@@ -224,9 +230,11 @@ export class LinguaLeafRuntime {
     /** 新词表单提交后只对来源文章的目标 SR 闪卡做增量更新 */
     async saveCapture(request: PanelCapture, model: ExpressionInfo, outline: string): Promise<void> {
         if (this.capture?.id !== request.id || !request.valid() || !this.alive) throw new Error("来源文章已关闭或查询已改变，请重新选择");
-        await this.host.save(request.file, formToCard(request.card, model, outline));
+        await this.host.save(request.file, formToCard(request.card, model, outline), request.isEdit ? undefined : request.id);
+        // 当前面板同步显示最新累计次数，继续编辑不重复增加。
+        request.captureCount = (await this.host.scan()).find(item => expressionKey(item.card.language, item.card.text) === expressionKey(request.card.language, model.expression))?.captureCount || 0;
         // 保存完成后刷新原有单词列表。
-        window.dispatchEvent(new CustomEvent("obsidian-langr-refresh", { detail: { expression: model.expression, type: model.t, status: model.status } }));
+        window.dispatchEvent(new CustomEvent("obsidian-langr-refresh", { detail: { expression: model.expression, type: model.t } }));
         new Notice("已保存到本文闪卡，现有复习进度已保留");
     }
     /** 卸载插件时关闭当前文章会话 */

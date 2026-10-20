@@ -5,5 +5,5 @@ export interface EventMap extends GlobalEventHandlersEventMap {
     /** 没有可用文章时清空新词表单来源 */
     "lingualeaf-clear-capture": CustomEvent;
     /** 保存词句后刷新单词列表 */
-    "obsidian-langr-refresh": CustomEvent<{ expression: string; type: string; status: number }>;
+    "obsidian-langr-refresh": CustomEvent<{ expression: string; type: string }>;
 }

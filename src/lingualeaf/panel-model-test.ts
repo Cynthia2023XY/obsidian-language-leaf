@@ -5,18 +5,16 @@ import type { LeafCard } from "./domain";
 
 /** 与原表单相同的卡片身份和 SR 归属样本 */
 const card: LeafCard = { id: "panel-card", expressionId: "panel-expression", text: "Été", language: "fr", meaning: "夏天",
-    sentence: "Un bel été.", translation: "美好的夏天。", outline: "回忆夏日", notes: "原笔记", anchor: "Un bel été.", kind: "word", status: "learning", tags: ["季节"], owner: "spaced-repetition" };
+    sentence: "Un bel été.", translation: "美好的夏天。", outline: "回忆夏日", notes: "原笔记", anchor: "Un bel été.", kind: "word", tags: ["季节"], owner: "spaced-repetition" };
 
 describe("复用原插件表单的 Markdown 桥接", () => {
-    it("完整保留五档状态、大小写和法语重音", () => {
-        for (let status = 0; status < 5; status++) {
-            // 不再把原插件的 learned 状态静默降级为 known。
-            const form = { ...cardToForm(card, "夏日"), status };
-            const saved = formToCard(card, form, card.outline);
-            expect(cardToForm(parseCards(renderCard(saved, "?"), "?")[0].card, "夏日").status).toBe(status);
-            expect(saved.text).toBe("Été");
-            expect(saved.language).toBe("fr");
-        }
+    it("不再需要手动状态，保留大小写和法语重音", () => {
+        // 表单只编辑词句本身，收录次数由保存意图自动统计。
+        const form = cardToForm(card, "夏日");
+        const saved = formToCard(card, form, card.outline);
+        expect(form).not.toHaveProperty("status");
+        expect(saved.text).toBe("Été");
+        expect(saved.language).toBe("fr");
     });
     it("多条笔记、例句和出处经过保存及重开仍逐条可编辑，SR 进度保持原文", () => {
         // 保留原表单动态添加的多条记录，而非只保存第一条。

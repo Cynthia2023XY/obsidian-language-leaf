@@ -3,6 +3,7 @@ import type { FilePort, CaptureOperation } from "./storage";
 import { LearningStore } from "./storage";
 import { extractContext, fencedBlocks, parseCards, upsertCard, validateCard } from "./article";
 import { expressionKey, newId } from "./domain";
+import { captureCounts } from "./capture-count";
 import type { LeafCard, ArticleContext } from "./domain";
 
 /** 用户可配置的 LinguaLeaf 学习参数 */
@@ -27,6 +28,8 @@ export interface IndexedCard {
     path: string;
     /** 当前卡片内容 */
     card: LeafCard;
+    /** 同语言同表达的历史主动收录次数 */
+    captureCount?: number;
 }
 /** Vault 文件端口，只访问明确相对路径 */
 export class VaultPort implements FilePort {
@@ -147,16 +150,21 @@ export class LeafHost {
                 if (record?.schema !== 1) throw new Error("未知词条实体版本");
                 // 相同词条在其他文章仍有来源时不重复显示孤立项。
                 const card = validateCard(record.card);
-                // 学习状态和标签属于共享词条，文章语境义仍以各自原文为准。
+                // 标签属于共享词条，文章语境义仍以各自原文为准。
                 for (const item of all.filter(item => item.card.expressionId === card.expressionId)) {
-                    item.card.status = card.status || "learning"; item.card.tags = card.tags || [];
+                    item.card.tags = card.tags || [];
                 }
                 this.errors.delete(path);
                 if (!all.some(item => item.card.expressionId === card.expressionId)) orphaned.push({ path: "", card });
             } catch (error) { this.errors.set(path, String(error)); }
         }
         this.index.set("__orphan__", orphaned);
-        return all.filter(item => !this.errors.has(item.path)).concat(orphaned);
+        // 计数从已完成操作恢复，避免编辑、重复点击和中断重放虚增。
+        const result = all.filter(item => !this.errors.has(item.path)).concat(orphaned);
+        // 每个收录请求只贡献一次，同词的不同来源展示相同累计值。
+        const counts = captureCounts(result, await this.store.operations());
+        for (const item of result) item.captureCount = counts.get(expressionKey(item.card.language, item.card.text)) || 0;
+        return result;
     }
     /** 文件修改事件使缓存失效，避免同毫秒修改和相同长度内容漏更新 */
     invalidate(path: string): void { this.stamps.delete(path); }
@@ -185,7 +193,7 @@ export class LeafHost {
         return extractContext(source, selected, this.outline(source), paragraph);
     }
     /** 收录词句，先持久化意图，再改文章，完成后更新索引 */
-    async save(file: TFile, card: LeafCard): Promise<void> {
+    async save(file: TFile, card: LeafCard, captureId?: string): Promise<void> {
         // 将本实例所有文章写入按序完成，避免同一单词快速点击竞争。
         const action = this.writes.then(async () => {
             await this.scan();
@@ -196,8 +204,12 @@ export class LeafHost {
             // 在记录恢复意图前确定真正落盘的卡片身份，避免同词合并后重放旧 ID。
             const previous = (this.index.get(file.path) || []).find(item => item.card.id === card.id || expressionKey(item.card.language, item.card.text) === expressionKey(card.language, card.text));
             if (previous) card = { ...card, id: previous.card.id, expressionId: previous.card.expressionId, owner: previous.card.owner };
-            // 持久化每次确认的意图，用于崩溃后重试。
-            const operation: CaptureOperation = { id: newId(), path: file.path, card, separator: this.settings.separator, deck: this.settings.deck, done: false };
+            // 老卡第一次再次收录时，保留原来至少收录过一次的事实。
+            const history = captureId ? await this.store.operations() : [];
+            // 操作日志保留基数，删除来源后次数也不会退回。
+            const legacyCapture = !!captureId && !!previous && !history.some(item => item.captureId && item.card.id === previous.card.id);
+            // 持久化每次确认的意图，用于崩溃后重试；重复请求由计数层去重。
+            const operation: CaptureOperation = { id: newId(), ...(captureId ? { captureId, legacyCapture } : {}), path: file.path, card, separator: this.settings.separator, deck: this.settings.deck, done: false };
             await this.store.capture(operation);
             await this.apply(operation, false);
             await this.scan();

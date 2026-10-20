@@ -72,16 +72,16 @@ export function validateCard(value: unknown): LeafCard {
     const card = value as LeafCard;
     if (!card || !["id", "expressionId", "language", "text", "meaning", "sentence", "translation", "outline", "notes", "anchor"].every(key => typeof (card as any)[key] === "string") ||
         !/^[a-zA-Z0-9-]+$/.test(card.id) || !/^[a-zA-Z0-9-]+$/.test(card.expressionId) || !card.text.trim() || !/^[a-zA-Z0-9-]+$/.test(card.language) ||
-        (card.status !== undefined && !["learning", "familiar", "known", "ignored", "learned"].includes(card.status)) || (card.tags !== undefined && (!Array.isArray(card.tags) || !card.tags.every(tag => typeof tag === "string"))) ||
+        (card.tags !== undefined && (!Array.isArray(card.tags) || !card.tags.every(tag => typeof tag === "string"))) ||
         !["word", "phrase"].includes(card.kind) || card.owner !== "spaced-repetition") throw new Error("卡片元数据损坏或版本不兼容");
     if (card.noteEntries !== undefined && (!Array.isArray(card.noteEntries) || !card.noteEntries.every(entry => typeof entry === "string"))) throw new Error("笔记结构损坏");
     if (card.sentences !== undefined && (!Array.isArray(card.sentences) || !card.sentences.every(entry => entry && [entry.text, entry.trans, entry.origin].every(value => typeof value === "string")))) throw new Error("例句结构损坏");
     return { ...(card.noteEntries ? { noteEntries: card.noteEntries } : {}), ...(card.sentences ? { sentences: card.sentences } : {}), id: card.id, expressionId: card.expressionId, language: card.language, text: card.text, meaning: card.meaning,
-        sentence: card.sentence, translation: card.translation, outline: card.outline, notes: card.notes, anchor: card.anchor, kind: card.kind, owner: card.owner, ...(card.status ? { status: card.status } : {}), ...(card.tags ? { tags: card.tags } : {}) };
+        sentence: card.sentence, translation: card.translation, outline: card.outline, notes: card.notes, anchor: card.anchor, kind: card.kind, owner: card.owner, ...(card.tags ? { tags: card.tags } : {}) };
 }
 /** 生成可直接由 Spaced Repetition 读取的多行闪卡 */
 export function renderCard(card: LeafCard, separator: string, schedule = ""): string {
-    validateCard(card);
+    card = validateCard(card);
     // 每张卡均使用 SR 的有效多行问答分隔符。
     const delimiter = separator;
     // 元数据仅提供定位与宿主无关身份，正文内容会在解析时反向覆盖快照字段。
