@@ -26,7 +26,7 @@ async function evaluate(code) {
 /** 按实际成功的运行步骤生成报告 */
 const checks = [];
 await evaluate(`
-const p=app.plugins.plugins['obsidian-language-learner'];
+const p=app.plugins.plugins['language-leaf'];
 window.__leafPanelOriginal={settings:JSON.parse(JSON.stringify(p.settings)),dark:document.body.classList.contains('theme-dark'),light:document.body.classList.contains('theme-light')};
 p.settings.auto_pron=false;p.settings.use_machine_trans=false;
 for(const [id,entry] of Object.entries(p.settings.dictionaries))entry.enable=id==='youdao';p.store.dictsChange=!p.store.dictsChange;
@@ -58,7 +58,7 @@ panel.querySelector('.ll-save-card').click();return {name:'原生词典折叠与
     }
     assert.ok(saved, "改版表单未写入真实 SR 闪卡");
     checks.push(await evaluate(`
-const p=app.plugins.plugins['obsidian-language-learner'];const card=(await p.lingualeaf.host.scan()).find(item=>item.path===window.__leafPanelFixture.file.path);
+const p=app.plugins.plugins['language-leaf'];const card=(await p.lingualeaf.host.scan()).find(item=>item.path===window.__leafPanelFixture.file.path);
 if(!card||card.captureCount!==1||!card.card.noteEntries.includes('界面验收笔记')||!card.card.outline)throw Error('保存后的数据或计数丢失');
 await p.activateView('langr-data-panel','tab');return {name:'真实表单保存为 SR 闪卡，笔记、概览及收录次数正确'};
 `));
@@ -84,12 +84,12 @@ return {name:'词库组合搜索与收录次数列正确，旧筛选栏已移除
     checks.push(await evaluate(`
 if(!document.querySelector('.n-dropdown-menu'))throw Error('点击行菜单无响应');
 document.querySelector("#langr-data .ll-row-menu").click();
-const p=app.plugins.plugins['obsidian-language-learner'];document.body.classList.remove('theme-light');document.body.classList.add('theme-dark');p.store.dark=true;p.store.themeChange=!p.store.themeChange;
+const p=app.plugins.plugins['language-leaf'];document.body.classList.remove('theme-light');document.body.classList.add('theme-dark');p.store.dark=true;p.store.themeChange=!p.store.themeChange;
 return {name:'行操作菜单可用，开始深浅色检查'};
 `));
     /** 记录实际组件配色，不能用源码存在某个变量冒充运行验证 */
     const dark = await evaluate(`const input=document.querySelector('#langr-learn-panel .n-input');return {background:getComputedStyle(input).backgroundColor,text:getComputedStyle(input).color,library:getComputedStyle(document.querySelector('#langr-data .n-data-table-td')).backgroundColor,search:getComputedStyle(document.querySelector('#langr-search')).color,border:getComputedStyle(document.querySelector('#langr-learn-panel .ll-example')).borderLeftColor};`);
-    await evaluate(`const p=app.plugins.plugins['obsidian-language-learner'];document.body.classList.remove('theme-dark');document.body.classList.add('theme-light');p.store.dark=false;p.store.themeChange=!p.store.themeChange;return true;`);
+    await evaluate(`const p=app.plugins.plugins['language-leaf'];document.body.classList.remove('theme-dark');document.body.classList.add('theme-light');p.store.dark=false;p.store.themeChange=!p.store.themeChange;return true;`);
     /** 浅色模式应实际更新输入背景和正文颜色 */
     const light = await evaluate(`const input=document.querySelector('#langr-learn-panel .n-input');return {background:getComputedStyle(input).backgroundColor,text:getComputedStyle(input).color,library:getComputedStyle(document.querySelector('#langr-data .n-data-table-td')).backgroundColor,search:getComputedStyle(document.querySelector('#langr-search')).color,border:getComputedStyle(document.querySelector('#langr-learn-panel .ll-example')).borderLeftColor};`);
     assert.notEqual(dark.background, light.background, "主题切换没有改变实际输入背景");
@@ -97,7 +97,7 @@ return {name:'行操作菜单可用，开始深浅色检查'};
     assert.notEqual(dark.search, light.search, "查词面板未跟随主题更新");
     checks.push({ name: "实际 Obsidian 三个面板的深浅色切换均正确", dark, light });
 } finally {
-    await evaluate(`const original=window.__leafPanelOriginal;const p=app.plugins.plugins['obsidian-language-learner'];p.settings=original.settings;p.lingualeaf.host.settings=p.settings.learning;p.store.dictsChange=!p.store.dictsChange;document.body.classList.toggle('theme-dark',original.dark);document.body.classList.toggle('theme-light',original.light);p.store.dark=original.dark;p.store.themeChange=!p.store.themeChange;return true;`);
+    await evaluate(`const original=window.__leafPanelOriginal;const p=app.plugins.plugins['language-leaf'];p.settings=original.settings;p.lingualeaf.host.settings=p.settings.learning;p.store.dictsChange=!p.store.dictsChange;document.body.classList.toggle('theme-dark',original.dark);document.body.classList.toggle('theme-light',original.light);p.store.dark=original.dark;p.store.themeChange=!p.store.themeChange;return true;`);
 }
 /** 报告仅保存隔离验收用例，不采集用户词典内容或密钥 */
 const report = { testedAt: new Date().toISOString(), checks, limitation: "测试窗口处于后台；已验证真实组件 DOM、事件、持久化与主题颜色，未验证前台像素布局和物理鼠标拖选。" };

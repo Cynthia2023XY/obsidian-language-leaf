@@ -34,8 +34,8 @@ const close=document.querySelector('#sr-modal-view .modal-header-button');close?
 const path='Language Leaf划词回归-'+Date.now()+'.md';
 const file=await app.vault.create(path,'An old bookmark lay on the bedside table, beside a narrow slip of paper.');
 const leaf=app.workspace.getLeaf(false);await leaf.openFile(file);await app.workspace.revealLeaf(leaf);app.workspace.setActiveLeaf(leaf,{focus:true});
-await app.plugins.plugins['obsidian-language-learner'].lingualeaf.enter(leaf.view);
-if(!app.plugins.plugins['obsidian-language-learner'].lingualeaf.host.sessions.has(leaf.view))throw new Error('测试文章尚未进入学习模式');
+await app.plugins.plugins['language-leaf'].lingualeaf.enter(leaf.view);
+if(!app.plugins.plugins['language-leaf'].lingualeaf.host.sessions.has(leaf.view))throw new Error('测试文章尚未进入学习模式');
 window.__shiftRegression={path,leaf};return path;
 `);
 /** 等待原生阅读段落渲染，不插入替代正文 */
@@ -47,7 +47,7 @@ for(let i=0;i<50&&!ready;i++){
 assert.ok(ready,'原生段落未渲染');
 /** 实际 DOM 事件覆盖按下、移动和松开，查询结果只记录在本地 */
 const result=await evaluate(`
-const runtime=app.plugins.plugins['obsidian-language-learner'].lingualeaf;
+const runtime=app.plugins.plugins['language-leaf'].lingualeaf;
 const view=window.__shiftRegression.leaf.view;
 const paragraph=view.containerEl.querySelector('.markdown-preview-view p');
 paragraph.scrollIntoView({block:'center'});

@@ -22,35 +22,99 @@ export default class LinguaLeaf extends Plugin {
     /** 保留原表格的桌面字号适配 */
     constants = { platform: Platform.isMobile ? "mobile" : "desktop" };
 
+    /** 本次插件实例的生命周期诊断记录，仅保留最近一百条且不包含笔记或设置内容 */
+    lifecycleDiagnostics: Array<{ time: string; stage: string; status: string; error?: string; stack?: string }> = [];
+
+    /** 记录启动和卸载阶段，异常同时保留原始对象与堆栈供控制台定位 */
+    private logLifecycle(stage: string, status: "开始" | "完成" | "失败", error?: unknown): void {
+        // 仅记录阶段与错误，不输出用户配置和文章内容。
+        const entry = {
+            time: new Date().toISOString(), stage, status,
+            ...(error === undefined ? {} : { error: String(error), stack: error instanceof Error ? error.stack : undefined }),
+        };
+        this.lifecycleDiagnostics.push(entry);
+        if (this.lifecycleDiagnostics.length > 100) this.lifecycleDiagnostics.shift();
+        if (status === "失败") console.error("[Language Leaf lifecycle]", this.manifest.id, this.manifest.dir, entry, error);
+        else console.info("[Language Leaf lifecycle]", this.manifest.id, this.manifest.dir, entry);
+    }
+
     /** 初始化三个原有 Vue 面板及四个核心命令 */
     async onload(): Promise<void> {
-        this.settings = readSettings(await this.loadData());
-        store.dark = document.body.hasClass("theme-dark");
-        this.lingualeaf = new LinguaLeafRuntime(this);
-        this.registerView(SEARCH_PANEL_VIEW, leaf => new SearchPanelView(leaf, this));
-        this.registerView(LEARN_PANEL_VIEW, leaf => new LearnPanelView(leaf, this));
-        this.registerView(DATA_PANEL_VIEW, leaf => new DataPanelView(leaf, this));
-        this.addSettingTab(new SettingTab(this.app, this));
-        this.lingualeaf.load();
-        this.addRibbonIcon("languages", "切换当前文档为学习模式", () => { void this.lingualeaf.toggle().catch(report); });
-        this.addRibbonIcon(SEARCH_ICON, "打开查词面板", () => { void this.activateView(SEARCH_PANEL_VIEW, "left").catch(report); });
-        this.addRibbonIcon(LEARN_ICON, "打开新词面板", () => { void this.lingualeaf.openNewWordPanel().catch(report); });
-        this.addRibbonIcon(DATA_ICON, "打开单词列表", () => { void this.activateView(DATA_PANEL_VIEW, "tab").catch(report); });
-        this.registerReadingActions();
-        this.registerReviewCardAutoPronounce();
-        this.registerDomEvent(document.body, "click", event => {
-            // 保留 SR 卡片标题点击发音，不引入另一套复习界面。
-            const title = (event.target as HTMLElement).closest<HTMLElement>(".sr-modal-content h4, .sr-card-container .sr-content h4");
-            if (title?.textContent?.trim()) this.playReviewCardWord(title.textContent.trim());
-        });
-        this.registerEvent(this.app.workspace.on("css-change", () => {
-            store.dark = document.body.hasClass("theme-dark"); store.themeChange = !store.themeChange;
-        }));
+        // 失败时保留最后进入的阶段，错误继续交给 Obsidian 处理。
+        let stage = "启动入口";
+        this.logLifecycle(stage, "开始");
+        try {
+            stage = "读取并校验设置";
+            this.logLifecycle(stage, "开始");
+            this.settings = readSettings(await this.loadData());
+            stage = "同步主题";
+            this.logLifecycle(stage, "开始");
+            store.dark = document.body.hasClass("theme-dark");
+            stage = "创建学习运行时";
+            this.logLifecycle(stage, "开始");
+            this.lingualeaf = new LinguaLeafRuntime(this);
+            stage = "注册查词面板";
+            this.logLifecycle(stage, "开始");
+            this.registerView(SEARCH_PANEL_VIEW, leaf => new SearchPanelView(leaf, this));
+            stage = "注册新词面板";
+            this.logLifecycle(stage, "开始");
+            this.registerView(LEARN_PANEL_VIEW, leaf => new LearnPanelView(leaf, this));
+            stage = "注册单词列表面板";
+            this.logLifecycle(stage, "开始");
+            this.registerView(DATA_PANEL_VIEW, leaf => new DataPanelView(leaf, this));
+            stage = "注册设置页";
+            this.logLifecycle(stage, "开始");
+            this.addSettingTab(new SettingTab(this.app, this));
+            stage = "注册学习命令与运行时事件";
+            this.logLifecycle(stage, "开始");
+            this.lingualeaf.load();
+            stage = "注册侧栏按钮";
+            this.logLifecycle(stage, "开始");
+            this.addRibbonIcon("languages", "切换当前文档为学习模式", () => { void this.lingualeaf.toggle().catch(report); });
+            this.addRibbonIcon(SEARCH_ICON, "打开查词面板", () => { void this.activateView(SEARCH_PANEL_VIEW, "left").catch(report); });
+            this.addRibbonIcon(LEARN_ICON, "打开新词面板", () => { void this.lingualeaf.openNewWordPanel().catch(report); });
+            this.addRibbonIcon(DATA_ICON, "打开单词列表", () => { void this.activateView(DATA_PANEL_VIEW, "tab").catch(report); });
+            stage = "注册文章标题栏按钮";
+            this.logLifecycle(stage, "开始");
+            this.registerReadingActions();
+            stage = "注册复习卡片观察器";
+            this.logLifecycle(stage, "开始");
+            this.registerReviewCardAutoPronounce();
+            stage = "注册点击发音事件";
+            this.logLifecycle(stage, "开始");
+            this.registerDomEvent(document.body, "click", event => {
+                // 保留 SR 卡片标题点击发音，不引入另一套复习界面。
+                const title = (event.target as HTMLElement).closest<HTMLElement>(".sr-modal-content h4, .sr-card-container .sr-content h4");
+                if (title?.textContent?.trim()) this.playReviewCardWord(title.textContent.trim());
+            });
+            stage = "注册主题事件";
+            this.logLifecycle(stage, "开始");
+            this.registerEvent(this.app.workspace.on("css-change", () => {
+                store.dark = document.body.hasClass("theme-dark"); store.themeChange = !store.themeChange;
+            }));
+            this.logLifecycle("启动流程", "完成");
+        } catch (error) {
+            this.logLifecycle(stage, "失败", error);
+            throw error;
+        }
     }
     /** 停止当前学习会话并卸载面板 */
     onunload(): void {
-        this.lingualeaf?.unload();
-        for (const type of [SEARCH_PANEL_VIEW, LEARN_PANEL_VIEW, DATA_PANEL_VIEW]) this.app.workspace.detachLeavesOfType(type);
+        // 不吞掉清理错误，使日志与宿主看到同一份原始异常。
+        let stage = "卸载学习运行时";
+        this.logLifecycle(stage, "开始");
+        try {
+            this.lingualeaf?.unload();
+            for (const type of [SEARCH_PANEL_VIEW, LEARN_PANEL_VIEW, DATA_PANEL_VIEW]) {
+                stage = `卸载面板 ${type}`;
+                this.logLifecycle(stage, "开始");
+                this.app.workspace.detachLeavesOfType(type);
+            }
+            this.logLifecycle("onunload 清理", "完成");
+        } catch (error) {
+            this.logLifecycle(stage, "失败", error);
+            throw error;
+        }
     }
     /** 当前 Markdown 标题栏提供与命令相同的学习模式切换 */
     private registerReadingActions(): void {
@@ -70,7 +134,9 @@ export default class LinguaLeaf extends Plugin {
         this.registerEvent(this.app.workspace.on("file-open", update));
         this.app.workspace.onLayoutReady(update);
         this.register(() => {
+            this.logLifecycle("移除文章标题栏按钮", "开始");
             for (const leaf of this.app.workspace.getLeavesOfType("markdown")) leaf.view.containerEl.querySelectorAll(".lingualeaf-study-action, .change-to-reading").forEach(button => button.remove());
+            this.logLifecycle("移除文章标题栏按钮", "完成");
         });
     }
     /** 更新白名单配置并立即应用到学习服务及词典面板 */
@@ -147,11 +213,13 @@ export default class LinguaLeaf extends Plugin {
             characterData: true,
         });
         this.register(() => {
+            this.logLifecycle("移除复习卡片观察器", "开始");
             if (reviewCardPronounceFrame !== null) {
                 window.cancelAnimationFrame(reviewCardPronounceFrame);
             }
 
             reviewCardObserver.disconnect();
+            this.logLifecycle("移除复习卡片观察器", "完成");
         });
         pronounceVisibleReviewCard();
     }

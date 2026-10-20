@@ -17,7 +17,7 @@
 
 查词会发送词句到所启用的第三方词典；启用补充段落翻译且没有现成译文时，会发送原段落到有道。查词及 SR 自动发音访问有道音频服务。学习数据保存在本地 Vault，没有联网同步。
 
-- 桌面 Obsidian 1.14.4 起；沿用当前插件 ID，尚未发布新 Release。
+- 桌面 Obsidian 1.14.4 起；插件 ID 为 `language-leaf`，测试库安装目录为 `.obsidian/plugins/language-leaf/`，尚未发布新 Release。
 - [使用与开发说明](docs/lingualeaf/使用与开发说明.md)
 - [运行验收记录](docs/lingualeaf/runtime-smoke.json)
 

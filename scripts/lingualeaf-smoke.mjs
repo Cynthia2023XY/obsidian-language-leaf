@@ -30,7 +30,7 @@ async function evaluate(code) {
 const results = [];
 /** 本轮只使用临时内存配置，测试不保存用户词典设置 */
 const original = await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];
+const plugin=app.plugins.plugins['language-leaf'];
 const commands=Object.values(app.commands.commands).filter(command=>command.id.startsWith(plugin.manifest.id+':'));
 const expected=['切换当前文档为学习模式','打开单词列表','打开查词面板','打开新词面板'];
 if(commands.length!==4||expected.some(name=>!commands.some(command=>command.name===plugin.manifest.name+': '+name)))throw new Error('命令清单不是指定的四项');
@@ -45,7 +45,7 @@ return {commands:commands.map(command=>command.name)};
 results.push({name:'只注册四条命令，未启动旧数据库、服务器或内置复习',...original});
 try {
     await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];app.setting.open();app.setting.openTabById(plugin.manifest.id);
+const plugin=app.plugins.plugins['language-leaf'];app.setting.open();app.setting.openTabById(plugin.manifest.id);
 return true;
 `);
     const settings = await evaluate(`
@@ -57,7 +57,7 @@ app.setting.close();return {settingRows:count};
 `);
     results.push({name:'简化设置页只含学习、查词、发音、翻译及 SR 格式',...settings});
     const prepared = await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];const runtime=plugin.lingualeaf;
+const plugin=app.plugins.plugins['language-leaf'];const runtime=plugin.lingualeaf;
 const path='Language Leaf简化验收-'+Date.now()+'.md';
 const fence=String.fromCharCode(96).repeat(3);const source=[fence+'ll-outline','schema: 1','items:','  - text: 书签被纸条替换，留下线索',fence,'','The old blue bookmark lay on the bedside table. In its place was a narrow slip of paper.','','> [!translation]-','> 原来的蓝色书签被一张纸条替换。',''].join('\\n');
 const file=await app.vault.create(path,source);const leaf=app.workspace.getLeaf(false);await leaf.openFile(file);app.workspace.setActiveLeaf(leaf,{focus:true});
@@ -82,7 +82,7 @@ p.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,shiftKey:true,button:
     let captured = false;
     for(let attempt=0;attempt<30&&!captured;attempt++){
         captured=await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];const request=plugin.lingualeaf.capture;
+const plugin=app.plugins.plugins['language-leaf'];const request=plugin.lingualeaf.capture;
 if(!request||request.file.path!==window.__leafSimple.path||request.card.text!=='In its place')return false;
 if(!request.context.translation||!request.card.outline)throw new Error('已有译文或大纲丢失');
 const left=app.workspace.getLeavesOfType('langr-search-panel')[0];const right=app.workspace.getLeavesOfType('langr-learn-panel')[0];
@@ -94,7 +94,7 @@ return right.view.containerEl.querySelectorAll('textarea').length>0;
     }
     assert.ok(captured,'没有在原有左右面板呈现收词');
     await evaluate(`
-const runtime=app.plugins.plugins['obsidian-language-learner'].lingualeaf;const request=runtime.capture;
+const runtime=app.plugins.plugins['language-leaf'].lingualeaf;const request=runtime.capture;
 request.model.notes=['第一条笔记','第二条笔记'];request.model.sentences.push({text:'Another bookmark.',trans:'另一枚书签。',origin:'补充来源'});request.model.tags=['简化验收'];
 window.dispatchEvent(new CustomEvent('obsidian-langr-search',{detail:{selection:request.card.text,leafCapture:request}}));return true;
 `);
@@ -109,7 +109,7 @@ const panel=app.workspace.getLeavesOfType('langr-learn-panel')[0].view.container
     }
     assert.ok(saved,'真实新词表单没有保存到文章');
     const sr = await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];const item=(await plugin.lingualeaf.host.scan()).find(item=>item.path===window.__leafSimple.path);
+const plugin=app.plugins.plugins['language-leaf'];const item=(await plugin.lingualeaf.host.scan()).find(item=>item.path===window.__leafSimple.path);
 if(!item||item.card.owner!=='spaced-repetition'||item.card.noteEntries.length!==2||item.card.sentences.length!==2||item.captureCount!==1)throw new Error('随文表单数据丢失');
 const note=await app.plugins.plugins['obsidian-spaced-repetition']._dataManager.loadNote(window.__leafSimple.file);
 if(note.questionList.length!==1||!note.questionList[0].cards[0].back.includes(item.card.outline))throw new Error('真实 SR 没有正确读取闪卡或大纲');
@@ -117,7 +117,7 @@ window.__leafSimple.card=item.card;
 return {srCards:note.questionList.length,multipleNotes:true,multipleSentences:true,outline:true};
 `);
     results.push({name:'原表单保存完整上下文，SR 真实加载一张随文闪卡',...prepared,...sr});
-    await evaluate(`app.commands.executeCommandById('obsidian-language-learner:leaf-library');return true;`);
+    await evaluate(`app.commands.executeCommandById('language-leaf:leaf-library');return true;`);
     let table = false;
     for(let attempt=0;attempt<30&&!table;attempt++){
         table=await evaluate(`const leaf=app.workspace.getLeavesOfType('langr-data-panel')[0];return !!leaf&&app.workspace.rootSplit.containerEl.contains(leaf.view.containerEl)&&!!leaf.view.containerEl.querySelector('.n-data-table');`);
@@ -131,16 +131,16 @@ return {srCards:note.questionList.length,multipleNotes:true,multipleSentences:tr
     // SR 持久化完成后才比较调度文本。
     for(let i=0;i<30;i++){if(await evaluate(`return (await app.vault.read(window.__leafSimple.file)).includes('<!--SR:');`))break;await new Promise(resolve=>setTimeout(resolve,80));}
     const schedule = await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];const file=window.__leafSimple.file;const before=await app.vault.read(file);const start=before.indexOf('<!--SR:');const schedule=start<0?'':before.slice(start,before.indexOf('-->',start)+3);if(!schedule)throw new Error('SR 真实评分没有写入');
+const plugin=app.plugins.plugins['language-leaf'];const file=window.__leafSimple.file;const before=await app.vault.read(file);const start=before.indexOf('<!--SR:');const schedule=start<0?'':before.slice(start,before.indexOf('-->',start)+3);if(!schedule)throw new Error('SR 真实评分没有写入');
 await plugin.lingualeaf.host.save(file,{...window.__leafSimple.card,meaning:'编辑后的语境释义'});
 const after=await app.vault.read(file);if(!after.includes(schedule))throw new Error('编辑覆盖了 SR 进度');
 return {schedule};
 `);
     results.push({name:'保留原单词表并由 SR 评分，编辑后完整保留进度',...schedule});
     await evaluate(`const sr=document.querySelector('.sr-modal-content');const close=sr?.closest('.modal')?.querySelector('.modal-close-button,.modal-header-button');close?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0}));close?.click();return true;`);
-    await evaluate(`app.workspace.setActiveLeaf(window.__leafSimple.leaf,{focus:true});app.commands.executeCommandById('obsidian-language-learner:leaf-learn-panel');return true;`);
+    await evaluate(`app.workspace.setActiveLeaf(window.__leafSimple.leaf,{focus:true});app.commands.executeCommandById('language-leaf:leaf-learn-panel');return true;`);
     const manual = await evaluate(`
-const runtime=app.plugins.plugins['obsidian-language-learner'].lingualeaf;const request=runtime.capture;
+const runtime=app.plugins.plugins['language-leaf'].lingualeaf;const request=runtime.capture;
 if(!request||request.file.path!==window.__leafSimple.path||request.card.text!=='')throw new Error('手工新词面板没有固定保存文章');
 return {source:request.file.path};
 `);
@@ -153,7 +153,7 @@ return {translationStyle:true};
     results.push({name:'双语阅读样式仍生效',...styling});
 } finally {
     await evaluate(`
-const plugin=app.plugins.plugins['obsidian-language-learner'];
+const plugin=app.plugins.plugins['language-leaf'];
 plugin.settings=window.__leafSimpleOriginal;plugin.lingualeaf.host.settings=plugin.settings.learning;
 plugin.store.dictsChange=!plugin.store.dictsChange;delete window.__leafSimpleOriginal;
 return true;
