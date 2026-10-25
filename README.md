@@ -2,6 +2,8 @@
 
 作者：Cynthia Ding。
 
+[代码仓库](https://github.com/Cynthia2023XY/obsidian-language-leaf) · [问题反馈](https://github.com/Cynthia2023XY/obsidian-language-leaf/issues)
+
 在 Obsidian 原生 Markdown 中阅读、查词和收录词句，直接保存为同篇文章中的 Spaced Repetition 闪卡。
 
 只提供四条命令：
@@ -21,4 +23,24 @@
 - [使用与开发说明](docs/lingualeaf/使用与开发说明.md)
 - [运行验收记录](docs/lingualeaf/runtime-smoke.json)
 
-基于 Language Learner 原有词典与 Vue 面板实现重构，保留原作者与 MIT 许可信息。
+## 项目来源与致谢
+
+Language Leaf 最初基于 [guopenghui/obsidian-language-learner](https://github.com/guopenghui/obsidian-language-learner) 重构，沿用了原项目的词典与部分 Vue 面板实现，现由 Cynthia Ding 独立开发和维护。感谢原作者 the_tree（guopenghui）的工作。
+
+本仓库保留完整开发主线提交历史、原作者署名、MIT 许可及代码中的第三方来源说明。独立仓库不表示所有代码均为从零编写。
+
+2026-10-25 起，后续开发和问题反馈统一在本仓库进行；[旧 fork](https://github.com/Cynthia2023XY/obsidian-language-learner) 保留迁移说明。插件名称、ID 和当前版本保持为 Language Leaf、`language-leaf`、`0.2.8`。历史标签仅用于追溯原项目，不代表 Language Leaf 的发布版本。
+
+## 构建与发布
+
+使用 Node.js 22，克隆本仓库后运行：
+
+```sh
+npm ci
+npm run test:run -- --pool=forks --poolOptions.forks.singleFork
+npm run build
+```
+
+将构建得到的 `main.js`、`manifest.json`、`styles.css` 放入测试笔记库的 `.obsidian/plugins/language-leaf/`，保留已有 `data.json`。重新加载插件后测试。
+
+本次迁移未创建 Release，尚未提交社区市场。发布流程见 [仓库迁移与维护](docs/repository-migration.md)。

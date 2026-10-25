@@ -1,3 +1,7 @@
+# 历史归档：原 Language Learner 项目梳理
+
+> 以下内容记录重构前的旧架构，不代表 Language Leaf 当前功能、文件结构或构建状态。当前说明请参阅 [使用与开发说明](lingualeaf/使用与开发说明.md)。
+
 # Obsidian Language Learner 项目梳理
 
 ## 项目定位
