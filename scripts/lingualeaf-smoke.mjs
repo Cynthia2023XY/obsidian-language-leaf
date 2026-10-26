@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const vault = "新功能测试仓库";
 /** CLI 通过参数数组传值，不经过 shell 插值 */
 const cli = (...args) => execFileSync("obsidian", [`vault=${vault}`, ...args], { encoding: "utf8" }).trim().replace(/^=> /, "");
-assert.equal(cli("vault", "info=path"), "/Users/dingxinyi.2/Documents/practice/obsidian测试笔记库/新功能测试仓库");
+assert.equal(cli("vault", "info=path"), process.env.LEAF_TEST_VAULT_PATH || "/Users/cynthia/obsidian vault/新功能测试仓库");
 /** 每个阶段只等待自己的异步结果，避免 CLI 对 Promise 直接返回空内容 */
 async function evaluate(code) {
     // 每次运行使用独立结果槽，代码解析失败时不会误取上一阶段结果。
@@ -32,8 +32,8 @@ const results = [];
 const original = await evaluate(`
 const plugin=app.plugins.plugins['language-leaf'];
 const commands=Object.values(app.commands.commands).filter(command=>command.id.startsWith(plugin.manifest.id+':'));
-const expected=['切换当前文档为学习模式','打开单词列表','打开查词面板','打开新词面板'];
-if(commands.length!==4||expected.some(name=>!commands.some(command=>command.name===plugin.manifest.name+': '+name)))throw new Error('命令清单不是指定的四项');
+const expected=['切换当前文档为学习模式','打开单词列表','打开查词面板','打开新词面板','查询选中的词句'];
+if(commands.length!==5||expected.some(name=>!commands.some(command=>command.name===plugin.manifest.name+': '+name)))throw new Error('命令清单不是指定的五项');
 if(plugin.db||plugin.server||plugin.parser||plugin.lingualeaf.openReview||plugin.lingualeaf.exportBackup)throw new Error('仍在运行旧功能');
 window.__leafSimpleOriginal=JSON.parse(JSON.stringify(plugin.settings));
 plugin.settings.auto_pron=false;plugin.settings.review_auto_pron=false;plugin.settings.use_machine_trans=false;
@@ -42,7 +42,7 @@ plugin.store.dictsChange=!plugin.store.dictsChange;
 plugin.lingualeaf.host.settings.modifier='shiftKey';
 return {commands:commands.map(command=>command.name)};
 `);
-results.push({name:'只注册四条命令，未启动旧数据库、服务器或内置复习',...original});
+results.push({name:'只注册五条命令，未启动旧数据库、服务器或内置复习',...original});
 try {
     await evaluate(`
 const plugin=app.plugins.plugins['language-leaf'];app.setting.open();app.setting.openTabById(plugin.manifest.id);

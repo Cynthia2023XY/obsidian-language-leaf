@@ -50,3 +50,6 @@ function parseYamlValue(value: string): string | boolean | number {
 function formatYamlValue(value: string | boolean | number): string {
     return typeof value === "string" ? JSON.stringify(value) : String(value);
 }
+
+/** 平台由测试显式模拟，不依赖 jsdom 的浏览器标识。 */
+export const Platform = { isMacOS: false };

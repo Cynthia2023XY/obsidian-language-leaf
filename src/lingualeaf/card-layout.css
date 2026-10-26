@@ -1,0 +1,13 @@
+/* 只作用于 Language Leaf 生成的卡片，保留 SR 默认空行边界。 */
+.ll-card-source { color: var(--text-muted); font-size: .85em; }
+.ll-selection-query {
+    position: fixed;
+    z-index: 40;
+    padding: 4px 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    box-shadow: var(--shadow-s);
+}
+.ll-selection-query[hidden] { display: none; }

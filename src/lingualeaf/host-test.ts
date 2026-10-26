@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { TFile } from "obsidian";
+import { TFile, MarkdownView } from "obsidian";
 import { LeafHost } from "./host";
 import { parseCards } from "./article";
 import type { LeafCard } from "./domain";
+
+const notices = vi.hoisted(() => [] as string[]);
 
 vi.mock("obsidian", () => {
     /** 测试文件只提供宿主需要的身份字段 */
@@ -14,7 +16,7 @@ vi.mock("obsidian", () => {
         /** 创建模拟文件 */
         constructor(path: string) { this.path = path; this.extension = path.split(".").pop()!; }
     }
-    return { TFile: TestFile, normalizePath: (path: string) => path, parseYaml: () => ({}) };
+    return { TFile: TestFile, MarkdownView: class {}, Notice: class { constructor(message: string) { notices.push(message); } }, normalizePath: (path: string) => path, parseYaml: () => ({}) };
 });
 /** 模拟具有原子 process 的 Vault，覆盖真正的文章写入用例 */
 function fixture() {
@@ -157,4 +159,22 @@ describe("文章写入与崩溃恢复", () => {
         expect((await restarted.scan())[0].captureCount).toBe(2);
     });
 
+});
+
+
+describe("学习会话模式清理", () => {
+    it("切到编辑模式退出一次并提示，回到阅读模式不自动恢复", () => {
+        const setup = fixture(); const view = new MarkdownView(null as any) as any;
+        let mode = "preview"; view.file = setup.file; view.getMode = () => mode;
+        view.containerEl = { removeClass: vi.fn() }; view.setState = vi.fn();
+        (setup.host.plugin.app as any).workspace = { getLeavesOfType: () => [{ view }] };
+        const dispose = vi.fn(); setup.host.sessions.set(view, { view, file: setup.file, mode: "source", token: "mode-test", dispose });
+        const before = notices.length;
+        setup.host.prune(); expect(setup.host.sessions.has(view)).toBe(true);
+        mode = "source"; setup.host.prune(); setup.host.prune();
+        expect(setup.host.sessions.has(view)).toBe(false); expect(dispose).toHaveBeenCalledTimes(1);
+        expect(notices.slice(before)).toEqual(["已切换到编辑视图，Language Leaf 学习模式已退出"]);
+        expect(view.setState).not.toHaveBeenCalled();
+        mode = "preview"; setup.host.prune(); expect(setup.host.sessions.has(view)).toBe(false);
+    });
 });

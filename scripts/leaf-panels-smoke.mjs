@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 /** 验收仅操作指定测试笔记库 */
 const cli = (...args) => execFileSync("obsidian", ["vault=新功能测试仓库", ...args], { encoding: "utf8" }).trim().replace(/^=> /, "");
-assert.equal(cli("vault", "info=path"), "/Users/dingxinyi.2/Documents/practice/obsidian测试笔记库/新功能测试仓库");
+assert.equal(cli("vault", "info=path"), process.env.LEAF_TEST_VAULT_PATH || "/Users/cynthia/obsidian vault/新功能测试仓库");
 /** 等待自己的异步执行槽，不把未完成操作误报为通过 */
 async function evaluate(code) {
     // 每一步使用唯一槽，保证旧结果不会污染当前断言。
@@ -38,7 +38,7 @@ return true;
 try {
     checks.push(await evaluate(`
 const panel=document.querySelector('#langr-learn-panel');const set=(element,value)=>{element.value=value;element.dispatchEvent(new Event('input',{bubbles:true}))};
-const items=panel.querySelectorAll('.ll-capture-form>.n-form-item');set(items[0].querySelector('input'),window.__leafPanelFixture.text);set(items[1].querySelector('textarea'),'界面验收释义');
+const items=panel.querySelectorAll('.ll-capture-form>.n-form-item');set(items[0].querySelector('input'),window.__leafPanelFixture.text);set(items[1].querySelector('input'),'界面验收释义');
 const optional=panel.querySelectorAll('.ll-optional');if(optional.length!==2||Array.from(optional).some(item=>item.open))throw Error('笔记与概览没有默认折叠');
 optional[0].open=true;optional[0].querySelector('.ll-text-button').click();
 if(panel.textContent.includes('学习状态'))throw Error('仍显示旧状态');
@@ -49,7 +49,7 @@ const panel=document.querySelector('#langr-learn-panel');const note=panel.queryS
 const summary=document.querySelector('#langr-search .dict-item summary');if(!summary)throw Error('未渲染词典折叠分组');
 const old=summary.parentElement.open;summary.click();
 if(summary.parentElement.open===old)throw Error('词典折叠切换失败');
-panel.querySelector('.ll-save-card').click();return {name:'原生词典折叠与多笔记添加可用'};
+panel.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true,metaKey:require("obsidian").Platform.isMacOS,ctrlKey:!require("obsidian").Platform.isMacOS}));return {name:'原生词典折叠与多笔记添加可用'};
 `));
     let saved = false;
     for (let attempt = 0; attempt < 40 && !saved; attempt++) {

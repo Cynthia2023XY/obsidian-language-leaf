@@ -27,7 +27,7 @@ export interface ExpressionInfo {
 
 /** 随文卡片转换为原插件可直接编辑的词条表单 */
 export function cardToForm(card: LeafCard, origin: string): ExpressionInfo {
-    return { expression: card.text, meaning: card.meaning, t: card.kind === "phrase" ? "PHRASE" : "WORD",
+    return { expression: card.text, meaning: card.meaning.replace(/[\r\n]+/g, " "), t: card.kind === "phrase" ? "PHRASE" : "WORD",
         tags: [...(card.tags || [])],
         notes: [...(card.noteEntries || (card.notes ? [card.notes] : []))],
         sentences: (card.sentences || (card.sentence ? [{ text: card.sentence, trans: card.translation, origin }] : [])).map(entry => ({ ...entry })) };
@@ -40,7 +40,7 @@ export function formToCard(card: LeafCard, model: ExpressionInfo, outline: strin
     const sentences = model.sentences.map(entry => ({ text: entry.text || "", trans: entry.trans || "", origin: entry.origin || "" }));
     // 多条笔记仍逐条保留，卡片答案使用连续文本防止 SR 提前截断。
     const notes = model.notes.map(entry => entry || "");
-    return { ...card, text: model.expression.trim(), meaning: model.meaning.trim(), kind: model.t === "PHRASE" ? "phrase" : "word",
+    return { ...card, text: model.expression.trim(), meaning: model.meaning.replace(/[\r\n]+/g, " ").trim(), kind: model.t === "PHRASE" ? "phrase" : "word",
         tags: [...model.tags], notes: notes.join("；"), noteEntries: notes, sentences,
         sentence: sentences[0]?.text || "", translation: sentences[0]?.trans || "", outline };
 }

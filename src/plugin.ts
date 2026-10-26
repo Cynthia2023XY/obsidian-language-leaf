@@ -7,6 +7,7 @@ import { SettingTab } from "./settings";
 import { readSettings } from "./lingualeaf/config";
 import type { LeafPluginSettings } from "./lingualeaf/config";
 import { LinguaLeafRuntime } from "./lingualeaf/runtime";
+import { normalizeCardSpacing } from "./lingualeaf/card-spacing";
 import { report } from "./lingualeaf/ui";
 import { playAudio } from "./utils/helpers";
 import store from "./store";
@@ -70,6 +71,7 @@ export default class LinguaLeaf extends Plugin {
             stage = "注册学习命令与运行时事件";
             this.logLifecycle(stage, "开始");
             this.lingualeaf.load();
+            this.registerMarkdownPostProcessor(root => normalizeCardSpacing(root));
             stage = "注册侧栏按钮";
             this.logLifecycle(stage, "开始");
             this.readingRibbon = this.addRibbonIcon("languages", "进入学习模式", () => { void this.lingualeaf.toggle().catch(report); });

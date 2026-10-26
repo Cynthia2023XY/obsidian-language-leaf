@@ -1,0 +1,13 @@
+{
+  "testedAt": "2026-10-26T13:03:34.242Z",
+  "tests": 82,
+  "typecheck": true,
+  "productionBuild": true,
+  "srParserVersion": "1.15.4",
+  "srParserCompatibility": true,
+  "deploymentHashesMatched": true,
+  "version": "0.2.8",
+  "published": false,
+  "autoQueryDefault": false,
+  "uiValidation": "Plugin was disabled and re-enabled in the test vault. A final command-palette guard was deployed afterward; reload once before testing. Full UI, physical Command key and three-finger trackpad acceptance remain unverified."
+}

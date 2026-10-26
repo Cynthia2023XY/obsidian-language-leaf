@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const vault = "新功能测试仓库";
 /** CLI 通过参数数组传值，不经过 shell 插值 */
 const cli = (...args) => execFileSync("obsidian", [`vault=${vault}`, ...args], { encoding: "utf8" }).trim().replace(/^=> /, "");
-assert.equal(cli("vault", "info=path"), "/Users/dingxinyi.2/Documents/practice/obsidian测试笔记库/新功能测试仓库");
+assert.equal(cli("vault", "info=path"), process.env.LEAF_TEST_VAULT_PATH || "/Users/cynthia/obsidian vault/新功能测试仓库");
 /** 每个阶段只等待自己的异步结果，避免 CLI 对 Promise 直接返回空内容 */
 async function evaluate(code) {
     // 每次运行使用独立结果槽，代码解析失败时不会误取上一阶段结果。

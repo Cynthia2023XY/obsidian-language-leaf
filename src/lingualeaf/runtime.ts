@@ -9,8 +9,10 @@ import { DATA_PANEL_VIEW } from "../views/DataPanelView";
 import { SEARCH_PANEL_VIEW } from "../views/SearchPanelView";
 import { LEARN_PANEL_VIEW } from "../views/LearnPanelView";
 import { cardToForm, formToCard } from "./panel-model";
-import { resetShiftSelection, extendShiftSelection, selectedParagraph } from "./selection";
+import { resetShiftSelection, extendShiftSelection } from "./selection";
 import type { TextCaret } from "./selection";
+import { watchReadingMode } from "./reading-mode";
+import { installSelectionQuery, readingSelection } from "./selection-query";
 
 /** 右侧新词表单冻结的文章来源，防止异步查询写错文件 */
 export interface PanelCapture {
@@ -42,6 +44,8 @@ export class LinguaLeafRuntime {
     private alive = true;
     /** 当前右侧表单对应的随文收录请求 */
     capture?: PanelCapture;
+    /** 快速连续划词时仅允许最后一次请求打开面板。 */
+    private queries = new WeakMap<MarkdownView, number>();
     /** 读取当前原生学习与 SR 格式配置 */
     constructor(plugin: LanguageLearner) {
         this.plugin = plugin;
@@ -51,6 +55,7 @@ export class LinguaLeafRuntime {
     /** 注册命令及严格绑定会话的事件 */
     load(): void {
         this.command("leaf-toggle-reading", "切换当前文档为学习模式", () => this.toggle());
+        this.command("leaf-query-selection", "查询选中的词句", () => this.queryActive());
         this.command("leaf-library", "打开单词列表", () => this.plugin.activateView(DATA_PANEL_VIEW, "tab"));
         this.command("leaf-search-panel", "打开查词面板", () => this.plugin.activateView(SEARCH_PANEL_VIEW, "left"));
         this.command("leaf-learn-panel", "打开新词面板", () => this.openNewWordPanel());
@@ -110,9 +115,6 @@ export class LinguaLeafRuntime {
             if (drag?.pointer === event.pointerId) {
                 extendShiftSelection(event, view.contentEl, drag.caret); releaseDrag();
             }
-            if (!view.containerEl.ownerDocument.getSelection()?.toString().trim()) return;
-            if (!(event as any)[this.host.settings.modifier] || event.button !== 0 || this.plugin.app.workspace.getActiveViewOfType(MarkdownView) !== view) return;
-            void this.queryActive(view).catch(report);
         };
         // 在浏览器执行 Shift 扩选前，将锚点定位到本次拖选起点。
         const pointerdown = (event: PointerEvent): void => {
@@ -134,30 +136,32 @@ export class LinguaLeafRuntime {
         view.containerEl.addEventListener("pointermove", pointermove);
         view.containerEl.addEventListener("pointercancel", releaseDrag);
         view.containerEl.addEventListener("pointerup", pointerup);
+        const stopWatchingMode = watchReadingMode(view, () => this.host.prune());
+        const selectionQuery = installSelectionQuery(view.contentEl, {
+            active: () => this.alive && view.getMode() === "preview" && this.host.sessions.get(view)?.token === token && view.file === file && this.plugin.app.workspace.getActiveViewOfType(MarkdownView) === view,
+            modifier: () => this.host.settings.modifier,
+            autoQuery: () => this.host.settings.autoQuerySelection,
+            query: () => { void this.queryActive(view).catch(report); }
+        });
         view.containerEl.addClass("lingualeaf-reading");
-        this.host.sessions.set(view, { view, file, mode, token, dispose: () => {
-            releaseDrag();
+        this.host.sessions.set(view, { view, file, mode, token, selection: selectionQuery.selection, dispose: () => {
+            releaseDrag(); selectionQuery.dispose(); stopWatchingMode();
             view.containerEl.removeEventListener("pointermove", pointermove);
             view.containerEl.removeEventListener("pointercancel", releaseDrag);
             view.containerEl.removeEventListener("pointerdown", pointerdown, true);
             view.containerEl.removeEventListener("pointerup", pointerup);
         } });
         this.plugin.refreshReadingActions();
-        new Notice(`Language Leaf 学习模式已开启：按住 ${this.host.settings.modifier.replace("Key", "")} 划词；关闭文档自动退出`);
+        new Notice(this.host.settings.autoQuerySelection ? "Language Leaf 学习模式已开启：划选词句后自动查词；切换到编辑视图或关闭文档时退出" : `Language Leaf 学习模式已开启：按住 ${this.host.settings.modifier.replace("Key", "")} 划词，或选中文字后点“查词”；切换到编辑视图或关闭文档时退出`);
     }
     /** 读取所属窗口选区，拒绝跨段、翻译、代码和插件浮层 */
     async queryActive(view = this.active()): Promise<void> {
-        if (!this.host.sessions.has(view)) throw new Error("请先开启当前文档学习模式");
-        // 多窗口必须使用视图所属的 document，而不是全局 window。
-        const selection = view.containerEl.ownerDocument.getSelection();
-        if (!selection || selection.isCollapsed || !selection.rangeCount) throw new Error("请先选择文章中的词句");
-        // 选区两端必须都属于当前文章。
-        const range = selection.getRangeAt(0);
-        if (!view.contentEl.contains(range.startContainer) || !view.contentEl.contains(range.endContainer)) throw new Error("选区不属于当前文章正文");
-        // 浏览器可能将段落末尾的选区端点记录在外层容器，按实际选中文字校验。
-        const paragraph = selectedParagraph(range, view.contentEl);
-        if (!paragraph) throw new Error("请在普通正文的同一段落内选择，代码、翻译和嵌入内容暂不支持");
-        await this.query(view, selection.toString(), paragraph.textContent || "");
+        this.host.prune();
+        const session = this.host.sessions.get(view);
+        if (!session) throw new Error("请先开启当前文档学习模式");
+        const selected = session.selection ? session.selection() : readingSelection(view.contentEl);
+        if (!selected) throw new Error("请在普通正文的同一段落内选择 1—500 个字符，代码、翻译和嵌入内容暂不支持");
+        await this.query(view, selected.text, selected.paragraph.textContent || "");
     }
     /** 把来源和上下文冻结到表单，并检查查询结束时会话仍有效 */
     private async query(view: MarkdownView, selected: string, paragraph?: string): Promise<void> {
@@ -165,12 +169,14 @@ export class LinguaLeafRuntime {
         // 查询不允许后台叶子接收其他窗口的选区。
         const session = this.host.sessions.get(view);
         if (!session || !selected.trim() || selected.trim().length > 500) throw new Error("请在有效学习会话中选择 1—500 个字符");
+        const sequence = (this.queries.get(view) || 0) + 1;
+        this.queries.set(view, sequence);
         // 来源定位失败时不能静默关联到同文的另一处句子。
         const context = await this.host.context(session.file, selected.trim(), paragraph);
         // 切换文件或退出后不弹出延迟结果。
         const valid = (): boolean => {
             this.host.prune();
-            return this.alive && this.host.sessions.get(view)?.token === session.token && view.file === session.file;
+            return this.alive && this.queries.get(view) === sequence && this.host.sessions.get(view)?.token === session.token && view.file === session.file;
         };
         // 同文再次查询已收录词时载入原卡，避免把手写内容重置成空表单。
         const matches = (await this.host.scan()).filter(item => expressionKey(item.card.language, item.card.text) === expressionKey(this.host.language(session.file), selected));

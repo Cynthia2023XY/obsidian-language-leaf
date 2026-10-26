@@ -821,6 +821,25 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
   border-color: var(--background-modifier-border);
 }
 
+/* src/lingualeaf/card-layout.css */
+.ll-card-source {
+  color: var(--text-muted);
+  font-size: .85em;
+}
+.ll-selection-query {
+  position: fixed;
+  z-index: 40;
+  padding: 4px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: var(--shadow-s);
+}
+.ll-selection-query[hidden] {
+  display: none;
+}
+
 /* src/main.css */
 .lingualeaf-reading .view-header-title::after {
   content: " \b7  Language Leaf";

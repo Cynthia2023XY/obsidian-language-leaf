@@ -2,5 +2,6 @@
 @import "../main.css";
 @import "./lingualeaf/bilingual-reading.css";
 @import "./lingualeaf/panels.css";
+@import "./lingualeaf/card-layout.css";
 /* Language Leaf 原生阅读仅添加状态提示，不重排或替换文章正文。 */
 .lingualeaf-reading .view-header-title::after { content: " · Language Leaf"; color: var(--text-accent); font-size: .8em; }

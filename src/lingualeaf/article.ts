@@ -89,13 +89,13 @@ export function renderCard(card: LeafCard, separator: string, schedule = ""): st
     const metadata = { schema: 1, ...card };
     // JSON 作为 HTML 注释时需逃逸连字符序列，防止用户文本提前关闭注释。
     const encoded = JSON.stringify(metadata).replace(/--/g, "\\u002d\\u002d").replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
-    // 答案字段不插空行，避免 SR 默认在半张卡处停止解析。
+    // 用显式换行提供段间留白，物理空行仍保留给 SR 判断卡片边界。
     const answer = [cardLine(card.meaning), card.sentence && `**原句**：${cardLine(card.sentence)}`,
-        card.translation && `**本文译文（段落）**：${cardLine(card.translation)}`,
-        card.outline && `**文章概览（收录时）**：${cardLine(card.outline)}`, card.notes && `**笔记**：${cardLine(card.notes)}`,
+        card.translation && `**译文**：${cardLine(card.translation)}`,
+        card.outline && `**概览**：${cardLine(card.outline)}`, card.notes && `**笔记**：${cardLine(card.notes)}`,
         ...(card.sentences || []).slice(1).map(entry => `**补充例句**：${cardLine(JSON.stringify(entry))}`),
-        card.sentences?.[0]?.origin && `**例句出处**：${cardLine(card.sentences[0].origin)}`]
-        .filter(Boolean).join("\n");
+        card.sentences?.[0]?.origin && `<small class="ll-card-source">出处：${cardLine(card.sentences[0].origin)}</small>`]
+        .filter(Boolean).join('\n<br class="ll-card-gap">\n');
     if (!card.meaning.trim() || !separator.trim() || /[\r\n]/.test(separator)) throw new Error("释义不能为空，分隔符必须是单行文本");
     return `<!-- ll-card: ${card.id} -->\n<!-- ll-meta: ${encoded} -->\n\n#word\n#### ${cardLine(card.text)}\n${delimiter}\n${answer}${schedule ? "\n" + schedule : ""}\n\n<!-- ll-end: ${card.id} -->`;
 }
@@ -123,7 +123,9 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
         // SR 可以将调度注释放在末行或单独下一行。
         const schedule = (match[3].match(/<!--SR:[\s\S]*?-->/g) || []).join("\n");
         // 从显示内容中分离 SR 注释，不改变注释原文。
-        const lines = match[3].replace(/<!--SR:[\s\S]*?-->/g, "").split(/\r?\n/);
+        const lines = match[3].replace(/<!--SR:[\s\S]*?-->/g, "").split(/\r?\n/)
+            .filter(line => !/^<br class="ll-card-gap">(?:<br>)?$/.test(line.trim()))
+            .map(line => line.replace(/^<small class="ll-card-source">出处：(.*)<\/small>$/, "**出处**：$1"));
         // 标题保持 H4，以兼容旧发音交互。
         const title = lines.findIndex(line => line.startsWith("#### "));
         // 题面与答案按当前 SR 多行问答格式解析。
@@ -132,12 +134,15 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
         card.text = decodeCardLine(lines[title].slice(5).trim());
         card.meaning = decodeCardLine(lines[split + 1].trim());
         // 连续字段行协议让手工改释义和笔记后仍可重新建立索引。
-        const field = (label: string): string => lines.slice(split + 2).filter(line => line.startsWith(`**${label}**：`)).map(line => decodeCardLine(line.slice(label.length + 5))).join("\n");
+        const field = (...labels: string[]): string => {
+            const label = labels.find(label => lines.slice(split + 2).some(line => line.startsWith(`**${label}**：`)));
+            return label ? lines.slice(split + 2).filter(line => line.startsWith(`**${label}**：`)).map(line => decodeCardLine(line.slice(label.length + 5))).join("\n") : "";
+        };
         card.sentence = field("原句");
-        card.translation = field("本文译文（段落）");
-        card.outline = field("文章概览（收录时）");
+        card.translation = field("译文", "本文译文（段落）");
+        card.outline = field("概览", "文章概览（收录时）");
         // 未识别的旧格式行作为笔记保留，不能在第一次编辑时丢弃原文信息。
-        const extra = lines.slice(split + 2).filter(line => line.trim() && !/^\*\*(原句|本文译文（段落）|文章概览（收录时）|笔记|补充例句|例句出处)\*\*：/.test(line));
+        const extra = lines.slice(split + 2).filter(line => line.trim() && !/^\*\*(原句|译文|本文译文（段落）|概览|文章概览（收录时）|笔记|补充例句|出处|例句出处)\*\*：/.test(line));
         card.notes = [field("笔记"), extra.join("；")].filter(Boolean).join("；");
         // 可见字段是权威；手改后同步第一条例句和笔记，避免隐藏快照覆盖正文。
         if (card.sentences) {
@@ -146,7 +151,7 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
             // 对照可见内容后恢复换行，手改字段仍使用当前正文。
             const restore = (snapshot: string | undefined, visible: string): string => snapshot !== undefined && decodeCardLine(cardLine(snapshot)) === visible ? snapshot : visible;
             // 用户删除所有例句后不额外生成一条空记录。
-            const primary = first || card.sentence || card.translation || field("例句出处") ? [{ text: restore(first?.text, card.sentence), trans: restore(first?.trans, card.translation), origin: restore(first?.origin, field("例句出处")) }] : [];
+            const primary = first || card.sentence || card.translation || field("出处", "例句出处") ? [{ text: restore(first?.text, card.sentence), trans: restore(first?.trans, card.translation), origin: restore(first?.origin, field("出处", "例句出处")) }] : [];
             card.sentences = [...primary, ...lines.slice(split + 2).filter(line => line.startsWith("**补充例句**：")).map(line => {
             // 补充例句以单行 JSON 保存，避免 SR 将空行识别为卡片边界。
             const entry = JSON.parse(decodeCardLine(line.slice("**补充例句**：".length)));

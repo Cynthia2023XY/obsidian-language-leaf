@@ -61,10 +61,33 @@ describe("原生闪卡与 SR 进度保留", () => {
     it("生成可直接识别的多行问答且答案内没有空行", () => {
         // 大纲和中文是答案正文的一部分，不需要插件特殊渲染。
         const result = renderCard(card(), "?");
-        expect(result).toContain("#word\n#### in its place\n?\n取而代之\n**原句**");
-        expect(result).toContain("**文章概览（收录时）**：书签留下线索");
+        expect(result).toContain("#word\n#### in its place\n?\n取而代之\n<br class=\"ll-card-gap\">\n**原句**");
+        expect(result).toContain("**概览**：书签留下线索");
         expect(result).not.toContain("<!--SR:");
         expect(parseCards(result, "?")[0].card).toEqual(card());
+    });
+    it("新排版没有物理空行，出处及手工修改可往返解析", () => {
+        const value = card({ notes: "提示", sentences: [{ text: "In its place was a slip of paper.", trans: "取而代之的是纸条。", origin: "Reading & context" }] });
+        const source = renderCard(value, "?", "<!--SR:!2026-10-20,3,250-->");
+        const answer = source.split("\n?\n")[1].split("\n\n")[0];
+        expect(answer).toContain('<br class="ll-card-gap">');
+        expect(answer).toContain('<small class="ll-card-source">出处：Reading &amp; context</small>');
+        expect(answer).toContain("**译文**："); expect(answer).toContain("**概览**：");
+        const parsed = parseCards(source.replace("**译文**：取而代之的是纸条。", "**译文**：手工修改译文").replace("出处：Reading &amp; context", "出处：手改出处"), "?")[0];
+        expect(parsed.card.translation).toBe("手工修改译文"); expect(parsed.card.sentences![0].origin).toBe("手改出处");
+        expect(parsed.card.notes).toBe("提示"); expect(parsed.schedule).toBe("<!--SR:!2026-10-20,3,250-->");
+    });
+    it("旧字段和紧凑排版可读取，保存仅升级目标卡且保留进度", () => {
+        const value = card({ sentences: [{ text: "In its place was a slip of paper.", trans: "取而代之的是纸条。", origin: "旧出处" }] });
+        const legacy = renderCard(value, "?", "<!--SR:!2026-10-20,3,250-->")
+            .replace(/\n<br class="ll-card-gap">(?:<br>)?/g, "")
+            .replace("**译文**", "**本文译文（段落）**").replace("**概览**", "**文章概览（收录时）**")
+            .replace('<small class="ll-card-source">出处：旧出处</small>', "**例句出处**：旧出处");
+        const parsed = parseCards(legacy, "?")[0]; expect(parsed.card).toEqual(value);
+        const other = renderCard(card({ id: "card-2", text: "another" }), "?");
+        const updated = upsertCard(legacy + "\n\n" + other, parsed.card, "?", "#flashcards");
+        expect(updated).toContain(other); expect(updated).not.toContain("**本文译文（段落）**");
+        expect(parseCards(updated, "?")[0].schedule).toBe(parsed.schedule);
     });
     it.each(["\n<!--SR:!2026-10-20,3,250-->", " <!--SR:!2026-10-20,3,250-->"])("保留同行或下一行 SR 注释：%s", suffix => {
         // 模拟 SR 在评分后修改答案末尾。

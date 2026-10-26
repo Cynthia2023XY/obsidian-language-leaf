@@ -8,6 +8,8 @@ import type { LeafCard, ArticleContext } from "./domain";
 
 /** 用户可配置的 LinguaLeaf 学习参数 */
 export interface LeafSettings {
+    /** 学习模式下普通划选完成后自动查询 */
+    autoQuerySelection: boolean;
     /** 默认收录语言 */
     language: string;
     /** 用户选择的修饰键 */
@@ -21,7 +23,7 @@ export interface LeafSettings {
 
 }
 /** 原生文章学习的默认配置，复习统一交给 Spaced Repetition */
-export const LEAF_DEFAULTS: LeafSettings = { language: "en", modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" };
+export const LEAF_DEFAULTS: LeafSettings = { language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" };
 /** 文章索引中的来源与卡片 */
 export interface IndexedCard {
     /** 当前来源路径，可随重命名更新 */
@@ -73,6 +75,8 @@ export class VaultPort implements FilePort {
 }
 /** 阅读会话与选区来源严格绑定在叶子视图上 */
 export interface ReadingSession {
+    /** 查询命令可以恢复命令面板打开前的有效选区 */
+    selection?: () => { text: string; paragraph: HTMLParagraphElement } | null;
     /** 激活时的视图 */
     view: MarkdownView;
     /** 激活时的文件对象，用于检测切换 */
@@ -289,7 +293,13 @@ export class LeafHost {
         // 获取仍附着的 Markdown 视图，以便关闭标签后清理监听。
         const views = new Set<MarkdownView>();
         this.plugin.app.workspace.getLeavesOfType("markdown").forEach(leaf => { if (leaf.view instanceof MarkdownView) views.add(leaf.view); });
-        for (const [view, session] of this.sessions) if (!views.has(view) || view.file !== session.file || !this.plugin.app.vault.getAbstractFileByPath(session.file.path)) this.stop(view, false);
+        for (const [view, session] of this.sessions) {
+            if (!views.has(view) || view.file !== session.file || !this.plugin.app.vault.getAbstractFileByPath(session.file.path)) this.stop(view, false);
+            else if (view.getMode() !== "preview") {
+                this.stop(view, false);
+                new Notice("已切换到编辑视图，Language Leaf 学习模式已退出");
+            }
+        }
     }
     /** 结束单个学习会话并清除文档事件 */
     stop(view: MarkdownView, restore = true): void {

@@ -28,6 +28,7 @@ export function readSettings(value: unknown): LeafPluginSettings {
         dictionaries[id] = { enable: typeof data.dictionaries?.[id]?.enable === "boolean" ? data.dictionaries[id].enable : true, priority: index + 1 };
     }
     return { learning: { language: ["en", "fr"].includes(learning.language) ? learning.language : "en",
+        autoQuerySelection: learning.autoQuerySelection === true,
         modifier: ["shiftKey", "ctrlKey", "altKey", "metaKey"].includes(learning.modifier) ? learning.modifier : "shiftKey",
         deck: typeof learning.deck === "string" && /^#[\p{L}\p{N}_/-]+$/u.test(learning.deck) ? learning.deck : "#flashcards",
         separator: typeof learning.separator === "string" && learning.separator.trim() && !/[\r\n<>]/.test(learning.separator) ? learning.separator : "?",

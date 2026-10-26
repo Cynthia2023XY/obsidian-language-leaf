@@ -1,11 +1,11 @@
 <template>
-    <div id="langr-learn-panel" class="ll-panel" @keydown.capture="quickSave.keydown" @input="quickSave.input" @focusout="quickSave.reset">
+    <div id="langr-learn-panel" class="ll-panel" @keydown.capture="quickSave.keydown">
         <NConfigProvider :theme="theme" :theme-overrides="themeOverrides">
             <header class="ll-panel-heading"><PanelIcon name="notebook-pen" /><span>新词</span></header>
             <p v-if="!leafCapture" class="ll-empty">请先打开要保存词句的 Markdown 文章。</p>
             <NForm class="ll-capture-form" :model="model" label-placement="top" :rules="rules" require-mark-placement="right-hanging" @submit.prevent="submit">
                 <NFormItem label="表达" path="expression"><NInput size="small" v-model:value="model.expression" placeholder="单词或短语" /></NFormItem>
-                <NFormItem label="含义" path="meaning"><NInput size="small" type="textarea" :autosize="{ minRows: 1 }" v-model:value="model.meaning" placeholder="简短的语境释义" /></NFormItem>
+                <NFormItem label="含义" path="meaning"><NInput size="small" v-model:value="model.meaning" @paste="pasteMeaning" placeholder="简短的语境释义" /></NFormItem>
                 <div class="ll-capture-meta">
                     <NFormItem label="类别" path="t"><NRadioGroup v-model:value="model.t"><NRadio value="WORD">单词</NRadio><NRadio value="PHRASE">短语</NRadio></NRadioGroup></NFormItem>
                     <div class="ll-count-summary"><span class="ll-field-label">收录次数</span><span>{{ captureCount ? `已收录 ${captureCount} 次` : '尚未收录' }}</span></div>
@@ -26,7 +26,7 @@
                     <button type="button" class="ll-text-button" @click="addNote"><PanelIcon name="plus" />添加笔记</button>
                 </details>
                 <details v-if="leafCapture" class="ll-optional lingualeaf-outline-field"><summary><PanelIcon name="chevron-right" />文章概览<span class="ll-muted">收录时快照</span></summary><NInput size="small" type="textarea" v-model:value="leafOutline" placeholder="文章内容概览（可选）" autosize /></details>
-                <div class="ll-capture-footer"><span class="ll-muted ll-small">随文保存 · SR 闪卡 · 连按两次 Enter 保存</span><NButton class="ll-save-card" size="large" type="primary" attr-type="submit" :loading="submitLoading" :disabled="!leafCapture">{{ successing ? '已保存' : failing ? '重试保存' : '保存闪卡' }}</NButton></div>
+                <div class="ll-capture-footer"><span class="ll-muted ll-small">随文保存 · SR 闪卡 · {{ quickSave.label }} 保存</span><NButton class="ll-save-card" size="large" type="primary" attr-type="submit" :loading="submitLoading" :disabled="!leafCapture">{{ successing ? '已保存' : failing ? '重试保存' : '保存闪卡' }}</NButton></div>
             </NForm>
         </NConfigProvider>
     </div>
@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { Notice } from "obsidian";
-import { ref, shallowRef, computed, getCurrentInstance, onUnmounted } from "vue";
+import { ref, shallowRef, computed, getCurrentInstance, onUnmounted, nextTick } from "vue";
 import { NForm, NFormItem, NInput, NRadio, NRadioGroup, NButton, NSelect, NConfigProvider, darkTheme } from "naive-ui";
 import type { SelectOption } from "naive-ui";
 import type Plugin from "@/plugin";
@@ -85,6 +85,19 @@ let feedbackTimer: ReturnType<typeof setTimeout>;
 /** 只在新词面板焦点范围内接收快捷保存 */
 const quickSave = createQuickSave(() => { void submit(); });
 
+/** 多行释义粘贴为单行，并保留插入位置和词间空格。 */
+function pasteMeaning(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData("text/plain");
+    const input = event.target as HTMLInputElement;
+    if (!text || !/[\r\n]/.test(text) || input.tagName !== "INPUT") return;
+    event.preventDefault();
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? start;
+    const value = text.replace(/[\r\n]+/g, " ");
+    model.value.meaning = input.value.slice(0, start) + value + input.value.slice(end);
+    void nextTick(() => input.setSelectionRange(start + value.length, start + value.length));
+}
+
 /** 在原动态输入组件中新增一条例句 */
 function addSentence(): void { model.value.sentences.push({ text: "", trans: "", origin: "" }); }
 /** 新增一条独立笔记，保留原有多笔记能力 */
@@ -102,7 +115,6 @@ async function tagSearch(query: string): Promise<void> {
 async function fill(request?: PanelCapture): Promise<void> {
     // 后发查询会使旧翻译响应失效。
     const sequence = ++lookupSequence;
-    quickSave.reset();
     leafCapture.value = request || null;
     model.value = request ? JSON.parse(JSON.stringify(request.model)) : { expression: "", meaning: "", t: "WORD", tags: [], notes: [], sentences: [] };
     leafOutline.value = request?.card.outline || "";

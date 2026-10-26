@@ -10,10 +10,11 @@ describe("编辑后自动保存设置", () => {
         const saved: unknown[] = [];
         // 通过真实保存边界验证快速编辑不会相互覆盖。
         const writer = new SettingsWriter(() => current, async next => { await Promise.resolve(); current = next; saved.push(next); }, async () => false);
-        await Promise.all([writer.update(next => { next.learning.language = "fr"; }), writer.update(next => { next.auto_pron = false; }), writer.update(next => { next.dictionaries.youdao.enable = false; })]);
+        await Promise.all([writer.update(next => { next.learning.language = "fr"; }), writer.update(next => { next.auto_pron = false; next.learning.autoQuerySelection = true; }), writer.update(next => { next.dictionaries.youdao.enable = false; })]);
         expect(saved).toHaveLength(3);
         expect(current.learning.language).toBe("fr");
         expect(current.auto_pron).toBe(false);
+        expect(current.learning.autoQuerySelection).toBe(true);
         expect(current.dictionaries.youdao.enable).toBe(false);
     });
     it("无效输入不落盘且不阻塞后续有效设置", async () => {

@@ -8,6 +8,13 @@ const card: LeafCard = { id: "panel-card", expressionId: "panel-expression", tex
     sentence: "Un bel été.", translation: "美好的夏天。", outline: "回忆夏日", notes: "原笔记", anchor: "Un bel été.", kind: "word", tags: ["季节"], owner: "spaced-repetition" };
 
 describe("复用原插件表单的 Markdown 桥接", () => {
+    it("释义在旧卡载入和提交时统一为单行，笔记与译文保留多行", () => {
+        const form = cardToForm({ ...card, meaning: "第一行\r\n第二行" }, "夏日");
+        expect(form.meaning).toBe("第一行 第二行");
+        form.meaning = "重新\n填写"; form.notes = ["笔记\n第二行"]; form.sentences[0].trans = "译文\n第二行";
+        const saved = formToCard(card, form, card.outline);
+        expect(saved.meaning).toBe("重新 填写"); expect(saved.notes).toBe("笔记\n第二行"); expect(saved.translation).toBe("译文\n第二行");
+    });
     it("不再需要手动状态，保留大小写和法语重音", () => {
         // 表单只编辑词句本身，收录次数由保存意图自动统计。
         const form = cardToForm(card, "夏日");
