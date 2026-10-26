@@ -20,3 +20,28 @@
 .ll-review-error { color: var(--text-error); }
 .ll-migration-row { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--background-modifier-border); align-items: baseline; }
 @media (max-width: 520px) { .ll-review-modal .modal-content { padding: 0 4px; } .ll-review-body { padding: 16px 4px; } .ll-review-grades { gap: 5px; } .ll-review-grades button { font-size: 13px; } }
+
+/* 语境对照：原句先展示，释义和译文在揭晓后展示；窄窗口自动纵排。 */
+.ll-review-context { width: min(980px, 94vw); container-type: inline-size; }
+.ll-review-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; }
+.ll-review-original, .ll-review-columns > .ll-review-answer { min-width: 0; }
+.ll-review-columns > .ll-review-answer { border-left: 1px solid var(--background-modifier-border); padding: 0 0 0 24px; }
+.ll-review-recall { color: var(--text-muted); line-height: 1.65; margin: 8px 0; }
+.ll-review-original .ll-review-sentence { margin: 10px 0 0; }
+.ll-review-translation { font-size: 17px; line-height: 1.65; margin: 10px 0 0; white-space: pre-wrap; }
+.ll-review-sentence, .ll-review-meaning { overflow-wrap: anywhere; white-space: pre-wrap; }
+.ll-review-supplemental details { margin: 12px 0; color: var(--text-muted); }
+.ll-review-supplemental details p { color: var(--text-normal); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+@container (max-width: 640px) {
+    .ll-review-columns { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .ll-review-columns > .ll-review-answer { border-left: 0; border-top: 1px solid var(--background-modifier-border); padding: 20px 0 0; }
+}
+@media (max-width: 700px) {
+    .ll-review-columns { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .ll-review-columns > .ll-review-answer { border-left: 0; border-top: 1px solid var(--background-modifier-border); padding: 20px 0 0; }
+}
+
+.ll-review-source { display: flex; align-items: baseline; gap: 10px; margin-top: 18px; }
+.ll-review-source > .ll-review-eyebrow { flex-shrink: 0; }
+.ll-review-source .ll-review-source-link { display: inline; height: auto; min-width: 0; padding: 0; border: 0; box-shadow: none; background: transparent; color: var(--text-accent); text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; font-size: 13px; cursor: pointer; }
+.ll-review-source-link:hover { text-decoration: underline; }

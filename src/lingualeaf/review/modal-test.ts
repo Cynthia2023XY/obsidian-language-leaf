@@ -27,7 +27,7 @@ beforeAll(() => {
     prototype.createDiv = function(options: any) { return this.createEl("div", options); };
     prototype.createSpan = function(options: any) { return this.createEl("span", options); };
 });
-function fixture() {
+function fixture(layout: "focus" | "context" = "focus") {
     const files = new Map<string, string>();
     let fail = false;
     const port = {
@@ -37,7 +37,7 @@ function fixture() {
         create: async (path: string, text: string) => { if (fail) throw new Error("disk full"); if (files.has(path)) throw new Error("exists"); files.set(path, text); },
     };
     const cards = [{ path: "article.md", card: { id: "card-test", expressionId: "expression-test", owner: "builtin", text: "on the threshold", meaning: "在门槛处", sentence: "A traveler paused.", translation: "旅人停下了。", notes: "笔记", outline: "", kind: "phrase", language: "en", anchor: "" } }];
-    const plugin: any = { app: {}, settings: { learning: { dataFolder: "Data" }, review: { newLimit: 10, retention: .9 }, review_auto_pron: false }, lingualeaf: { host: { port, settings: { dataFolder: "Data" }, scan: async () => cards } }, playReviewCardWord: vi.fn() };
+    const plugin: any = { app: { workspace: { openLinkText: vi.fn().mockResolvedValue(undefined) } }, settings: { learning: { dataFolder: "Data" }, review: { newLimit: 10, retention: .9, layout }, review_auto_pron: false }, lingualeaf: { host: { port, settings: { dataFolder: "Data" }, scan: async () => cards } }, playReviewCardWord: vi.fn() };
     const modal = new ReviewModal(plugin); plugin.reviewModal = modal;
     return { modal, plugin, files, cards, store: new ReviewStore(port, "Data"), fail: (value: boolean) => { fail = value; } };
 }
@@ -88,5 +88,61 @@ describe("真实复习弹窗 DOM 行为", () => {
         const setup = fixture(); setup.modal.open(); await settle(); button(setup.modal, "显示答案").click();
         setup.cards[0] = { ...setup.cards[0], card: { ...setup.cards[0].card, meaning: "其他窗口已修改" } };
         button(setup.modal, "简单").click(); await settle(); expect((await setup.store.state("card-test")).revision).toBe(0); setup.modal.close();
+    });
+});
+
+
+describe("复习样式", () => {
+    it("语境对照先显示原句，揭晓后显示释义和译文", async () => {
+        const setup = fixture("context"); setup.modal.open(); await settle();
+        expect(setup.modal.modalEl.classList.contains("ll-review-context")).toBe(true);
+        const original = setup.modal.contentEl.querySelector(".ll-review-original")!;
+        expect(original.textContent).toContain("A traveler paused.");
+        const sourceLink = original.querySelector<HTMLButtonElement>(".ll-review-source-link")!;
+        expect(sourceLink.textContent).toBe("article");
+        expect(sourceLink.getAttribute("title")).toBe("article.md");
+        sourceLink.click();
+        expect(setup.plugin.app.workspace.openLinkText).toHaveBeenCalledWith("article.md", "", true);
+        expect(setup.modal.contentEl.textContent).not.toContain("在门槛处");
+        expect(setup.modal.contentEl.textContent).not.toContain("旅人停下了。");
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" })); await settle();
+        expect((await setup.store.state("card-test")).revision).toBe(0);
+        button(setup.modal, "显示答案").click();
+        const answer = setup.modal.contentEl.querySelector(".ll-review-answer")!;
+        expect(answer.textContent).toContain("在门槛处");
+        expect(answer.querySelector(".ll-review-translation")?.textContent).toBe("旅人停下了。");
+        expect(answer.querySelector("details")).toBeNull();
+        expect(setup.modal.contentEl.querySelectorAll(".ll-review-sentence")).toHaveLength(1);
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" })); await settle();
+        expect((await setup.store.state("card-test")).card.state).toBe(2); setup.modal.close();
+    });
+    it("专注回忆保留先回想词义、揭晓后显示原句的行为", async () => {
+        const setup = fixture("focus"); setup.modal.open(); await settle();
+        expect(setup.modal.modalEl.classList.contains("ll-review-context")).toBe(false);
+        expect(setup.modal.contentEl.textContent).not.toContain("A traveler paused.");
+        button(setup.modal, "显示答案").click();
+        expect(setup.modal.contentEl.textContent).toContain("A traveler paused.");
+        expect(setup.modal.contentEl.querySelector(".ll-review-answer details summary")?.textContent).toBe("译文"); setup.modal.close();
+    });
+    it("切换布局后重开窗口，评分和撤销沿用相同进度", async () => {
+        const setup = fixture("focus"); setup.modal.open(); await settle();
+        button(setup.modal, "显示答案").click(); button(setup.modal, "简单").click(); await settle();
+        const state = await setup.store.state("card-test"); setup.modal.close();
+        setup.plugin.settings.review.layout = "context";
+        const reopened = new ReviewModal(setup.plugin); reopened.open(); await settle();
+        expect(reopened.modalEl.classList.contains("ll-review-context")).toBe(true);
+        expect(await setup.store.state("card-test")).toEqual(state);
+        button(reopened, "撤销上次评分").click(); await settle();
+        expect((await setup.store.state("card-test")).card.state).toBe(0);
+        expect(reopened.contentEl.querySelector(".ll-review-original")?.textContent).toContain("A traveler paused."); reopened.close();
+    });
+    it("缺少原句译文时仍可揭晓评分，不显示空译文块", async () => {
+        const setup = fixture("context"); setup.cards[0].card.sentence = ""; setup.cards[0].card.translation = "";
+        setup.modal.open(); await settle();
+        expect(setup.modal.contentEl.textContent).toContain("此卡片暂无原句");
+        button(setup.modal, "显示答案").click();
+        expect(setup.modal.contentEl.querySelector(".ll-review-translation")).toBeNull();
+        button(setup.modal, "简单").click(); await settle();
+        expect((await setup.store.state("card-test")).revision).toBe(1); setup.modal.close();
     });
 });

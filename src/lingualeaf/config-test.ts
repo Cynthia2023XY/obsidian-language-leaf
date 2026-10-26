@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { readSettings } from "./config";
 
+describe("复习样式设置", () => {
+    it("旧配置和未知样式默认专注回忆", () => {
+        expect(readSettings(null).review.layout).toBe("focus");
+        expect(readSettings({ review: { layout: "unknown" } }).review.layout).toBe("focus");
+    });
+    it("语境对照设置可保存回读，其他复习配置保留", () => {
+        const config = readSettings({ review: { layout: "context", engine: "builtin", newLimit: 8, retention: .92 } });
+        expect(config.review).toEqual({ layout: "context", engine: "builtin", newLimit: 8, retention: .92 });
+        expect(readSettings(JSON.parse(JSON.stringify(config))).review).toEqual(config.review);
+    });
+});
+
 describe("简化配置", () => {
     it("默认只提供原生学习、词典和 SR 配置", () => {
         // 当前数据目录不复用旧数据库或独立调度事件。

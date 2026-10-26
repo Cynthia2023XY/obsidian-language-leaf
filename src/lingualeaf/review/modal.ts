@@ -9,6 +9,7 @@ import type { Prepared, ReviewEvent, ReviewState } from "./engine";
 /** The host owns the close button; answer content scrolls independently of grading. */
 export class ReviewModal extends Modal {
     private store: ReviewStore;
+    private readonly layout: "focus" | "context";
     private session = newId();
     private skipped = new Set<string>();
     private revealed = false;
@@ -32,10 +33,13 @@ export class ReviewModal extends Modal {
     };
     constructor(private plugin: LinguaLeaf, private source?: string) {
         super(plugin.app);
+        this.layout = plugin.settings.review.layout === "context" ? "context" : "focus";
         this.store = new ReviewStore(plugin.lingualeaf.host.port, plugin.settings.learning.dataFolder);
     }
     onOpen(): void {
-        this.modalEl.addClass("ll-review-modal"); this.titleEl.setText("语叶 · 词句复习");
+        this.modalEl.addClass("ll-review-modal");
+        if (this.layout === "context") this.modalEl.addClass("ll-review-context");
+        this.titleEl.setText(this.layout === "context" ? "语叶 · 语境对照" : "语叶 · 词句复习");
         document.addEventListener("keydown", this.key, true);
         void this.refresh().catch(error => this.fail(error));
     }
@@ -131,7 +135,22 @@ export class ReviewModal extends Modal {
         const title = body.createEl("h2", { text: selected.item.card.text, cls: "ll-review-expression" });
         title.addEventListener("click", () => this.plugin.playReviewCardWord(selected.item.card.text));
         this.button(body, "播放发音", () => this.plugin.playReviewCardWord(selected.item.card.text));
-        body.createDiv({ cls: "ll-review-answer" });
+        if (this.layout === "context") {
+            const columns = body.createDiv({ cls: "ll-review-columns" });
+            const original = columns.createEl("section", { cls: "ll-review-original", attr: { "aria-label": "原句" } });
+            original.createDiv({ text: "在这段话中，它是什么意思？", cls: "ll-review-eyebrow" });
+            original.createEl("p", { text: selected.item.card.sentence || "此卡片暂无原句，可先回想词句含义。", cls: "ll-review-sentence" });
+            const source = original.createDiv({ cls: "ll-review-source" });
+            source.createSpan({ text: "出处", cls: "ll-review-eyebrow" });
+            const sourceName = selected.item.path.split("/").pop()!.replace(/\.md$/i, "");
+            const sourceLink = this.button(source, sourceName, () => {
+                void this.app.workspace.openLinkText(selected.item.path, "", true).catch(error => new Notice(`无法打开出处：${String(error)}`));
+            }, "ll-review-source-link");
+            sourceLink.setAttribute("title", selected.item.path);
+            sourceLink.setAttribute("aria-label", `打开来源文章：${sourceName}`);
+            const answer = columns.createEl("section", { cls: "ll-review-answer", attr: { "aria-label": "释义与译文", "aria-live": "polite" } });
+            answer.createEl("p", { text: "先想一想，再揭晓答案。", cls: "ll-review-recall" });
+        } else body.createDiv({ cls: "ll-review-answer" });
         const footer = this.contentEl.createDiv({ cls: "ll-review-footer" });
         this.button(footer, "显示答案 · 空格", () => this.reveal(), "mod-cta ll-review-reveal");
         const actions = this.contentEl.createDiv({ cls: "ll-review-tools" });
@@ -147,10 +166,19 @@ export class ReviewModal extends Modal {
         this.revealed = true;
         const card = this.current.card;
         const answer = this.contentEl.querySelector<HTMLElement>(".ll-review-answer");
+        answer.empty();
+        if (this.layout === "context") answer.createDiv({ text: "语境释义", cls: "ll-review-eyebrow" });
         answer.createEl("p", { text: card.meaning, cls: "ll-review-meaning" });
-        if (card.sentence) { answer.createDiv({ text: "原句", cls: "ll-review-eyebrow" }); answer.createEl("p", { text: card.sentence, cls: "ll-review-sentence" }); }
-        for (const [label, text] of [["译文", card.translation], ["笔记", card.notes], ["概览", card.outline]]) if (text) { const details = answer.createEl("details"); details.createEl("summary", { text: label }); details.createEl("p", { text }); }
-        for (const entry of (card.sentences || []).slice(1)) { const detail = answer.createEl("details"); detail.createEl("summary", { text: "补充例句" }); detail.createEl("p", { text: entry.text }); detail.createEl("p", { text: entry.trans }); }
+        if (this.layout !== "context" && card.sentence) { answer.createDiv({ text: "原句", cls: "ll-review-eyebrow" }); answer.createEl("p", { text: card.sentence, cls: "ll-review-sentence" }); }
+        if (this.layout === "context" && card.translation) {
+            answer.createDiv({ text: "译文", cls: "ll-review-eyebrow" });
+            answer.createEl("p", { text: card.translation, cls: "ll-review-translation" });
+        }
+        const supplemental = this.layout === "context" ? this.contentEl.querySelector<HTMLElement>(".ll-review-body") : answer;
+        supplemental.querySelector(".ll-review-supplemental")?.remove();
+        const extras = supplemental.createDiv({ cls: "ll-review-supplemental" });
+        for (const [label, text] of [["译文", this.layout === "context" ? "" : card.translation], ["笔记", card.notes], ["概览", card.outline]]) if (text) { const details = extras.createEl("details"); details.createEl("summary", { text: label }); details.createEl("p", { text }); }
+        for (const entry of (card.sentences || []).slice(1)) { const detail = extras.createEl("details"); detail.createEl("summary", { text: "补充例句" }); detail.createEl("p", { text: entry.text }); detail.createEl("p", { text: entry.trans }); }
         const footer = this.contentEl.querySelector<HTMLElement>(".ll-review-footer"); footer.empty(); footer.addClass("ll-review-grades");
         for (const grade of GRADES) {
             const button = this.button(footer, "", () => { void this.grade(grade.rating); }, grade.rating === 3 ? "mod-cta" : "");
