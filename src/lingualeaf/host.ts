@@ -22,7 +22,7 @@ export interface LeafSettings {
     dataFolder: string;
 
 }
-/** 原生文章学习的默认配置，复习统一交给 Spaced Repetition */
+/** 原生文章学习的默认配置，既有安装保持 SR 格式 */
 export const LEAF_DEFAULTS: LeafSettings = { language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" };
 /** 文章索引中的来源与卡片 */
 export interface IndexedCard {
@@ -67,6 +67,15 @@ export class VaultPort implements FilePort {
         if (file instanceof TFile) await this.plugin.app.vault.modify(file, content);
         else if (!file) await this.plugin.app.vault.create(path, content);
         else throw new Error("目标路径被文件夹占用");
+    }
+    async create(path: string, content: string): Promise<void> {
+        path = this.safe(path);
+        const parts = path.split("/");
+        for (let index = 1; index < parts.length; index++) {
+            const folder = parts.slice(0, index).join("/");
+            if (!this.plugin.app.vault.getAbstractFileByPath(folder)) await this.plugin.app.vault.createFolder(folder);
+        }
+        await this.plugin.app.vault.create(path, content);
     }
     /** 枚举普通数据文件，不依赖索引库 */
     async list(prefix: string): Promise<string[]> {

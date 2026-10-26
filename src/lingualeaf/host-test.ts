@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { TFile, MarkdownView } from "obsidian";
 import { LeafHost } from "./host";
 import { parseCards } from "./article";
+import { MigrationService } from "./review/migration";
+import { ReviewStore, prepare } from "./review/engine";
 import type { LeafCard } from "./domain";
 
 const notices = vi.hoisted(() => [] as string[]);
@@ -16,7 +18,7 @@ vi.mock("obsidian", () => {
         /** 创建模拟文件 */
         constructor(path: string) { this.path = path; this.extension = path.split(".").pop()!; }
     }
-    return { TFile: TestFile, MarkdownView: class {}, Notice: class { constructor(message: string) { notices.push(message); } }, normalizePath: (path: string) => path, parseYaml: () => ({}) };
+    return { Modal: class {}, TFile: TestFile, MarkdownView: class {}, Notice: class { constructor(message: string) { notices.push(message); } }, normalizePath: (path: string) => path, parseYaml: () => ({}) };
 });
 /** 模拟具有原子 process 的 Vault，覆盖真正的文章写入用例 */
 function fixture() {
@@ -176,5 +178,48 @@ describe("学习会话模式清理", () => {
         expect(notices.slice(before)).toEqual(["已切换到编辑视图，Language Leaf 学习模式已退出"]);
         expect(view.setState).not.toHaveBeenCalled();
         mode = "preview"; setup.host.prune(); expect(setup.host.sessions.has(view)).toBe(false);
+    });
+});
+
+
+describe("内置复习迁移事务", () => {
+    it("逐卡迁移移除 SR 语法并保留身份和近似进度", async () => {
+        const setup = fixture(); await setup.host.save(setup.file, setup.card);
+        setup.files.set("Article.md", setup.files.get("Article.md")!.replace("\n\n<!-- ll-end", "\n<!--SR:!2026-10-27,7,250-->\n\n<!-- ll-end"));
+        const service = new MigrationService(setup.host);
+        await service.migrate({ path: "Article.md", card: setup.card }, false);
+        const source = setup.files.get("Article.md")!; const card = parseCards(source, "?")[0];
+        expect(card.card.id).toBe(setup.card.id); expect(card.card.owner).toBe("builtin");
+        expect(source).not.toContain("\n?\n"); expect(source).not.toContain("<!--SR:");
+        const state = await new ReviewStore(setup.host.port, setup.host.settings.dataFolder).state(setup.card.id);
+        expect(state.card.scheduled_days).toBe(7); expect((await service.journals())[0].backup).toContain("<!--SR:");
+    });
+    it("回退只还原卡片块，保留其他文章编辑", async () => {
+        const setup = fixture(); await setup.host.save(setup.file, setup.card);
+        const original = setup.files.get("Article.md")!;
+        const service = new MigrationService(setup.host); await service.migrate({ path: "Article.md", card: setup.card }, false);
+        setup.files.set("Article.md", "新增正文\n" + setup.files.get("Article.md"));
+        await service.rollback((await service.journals())[0]);
+        expect(setup.files.get("Article.md")).toBe("新增正文\n" + original);
+    });
+    it("中断在来源转换后可继续恢复而不重复导入", async () => {
+        const setup = fixture(); await setup.host.save(setup.file, setup.card);
+        const service = new MigrationService(setup.host); await service.migrate({ path: "Article.md", card: setup.card }, false);
+        const journal = (await service.journals())[0]; journal.phase = "prepared";
+        await service.resume(journal); await service.resume(journal);
+        expect((await new ReviewStore(setup.host.port, setup.host.settings.dataFolder).events(setup.card.id))).toHaveLength(1);
+    });
+    it("已开始内置复习后禁止恢复旧 SR 进度", async () => {
+        const setup = fixture(); await setup.host.save(setup.file, setup.card);
+        const service = new MigrationService(setup.host); await service.migrate({ path: "Article.md", card: setup.card }, false);
+        const store = new ReviewStore(setup.host.port, setup.host.settings.dataFolder); const before = await store.state(setup.card.id);
+        const preview = prepare(setup.card.id, before, new Date(), .9);
+        await store.append({ schema: 1, id: "score", cardId: setup.card.id, session: "test", at: new Date().toISOString(), before, after: { ...before, revision: 2, card: preview.choices[3] }, kind: "grade", rating: 3, library: "ts-fsrs@5.4.1", retention: .9 });
+        await expect(service.rollback((await service.journals())[0])).rejects.toThrow("已开始");
+    });
+    it("文章在预览后变化时停止迁移", async () => {
+        const setup = fixture(); await setup.host.save(setup.file, setup.card);
+        await setup.host.save(setup.file, { ...setup.card, meaning: "新释义" });
+        await expect(new MigrationService(setup.host).migrate({ path: "Article.md", card: setup.card }, false)).rejects.toThrow("变化");
     });
 });

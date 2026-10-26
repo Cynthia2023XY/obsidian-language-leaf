@@ -74,7 +74,7 @@ export function validateCard(value: unknown): LeafCard {
     if (!card || !["id", "expressionId", "language", "text", "meaning", "sentence", "translation", "outline", "notes", "anchor"].every(key => typeof (card as any)[key] === "string") ||
         !/^[a-zA-Z0-9-]+$/.test(card.id) || !/^[a-zA-Z0-9-]+$/.test(card.expressionId) || !card.text.trim() || !/^[a-zA-Z0-9-]+$/.test(card.language) ||
         (card.tags !== undefined && (!Array.isArray(card.tags) || !card.tags.every(tag => typeof tag === "string"))) ||
-        !["word", "phrase"].includes(card.kind) || card.owner !== "spaced-repetition") throw new Error("卡片元数据损坏或版本不兼容");
+        !["word", "phrase"].includes(card.kind) || !["spaced-repetition", "builtin"].includes(card.owner)) throw new Error("卡片元数据损坏或版本不兼容");
     if (card.noteEntries !== undefined && (!Array.isArray(card.noteEntries) || !card.noteEntries.every(entry => typeof entry === "string"))) throw new Error("笔记结构损坏");
     if (card.sentences !== undefined && (!Array.isArray(card.sentences) || !card.sentences.every(entry => entry && [entry.text, entry.trans, entry.origin].every(value => typeof value === "string")))) throw new Error("例句结构损坏");
     return { ...(card.noteEntries ? { noteEntries: card.noteEntries } : {}), ...(card.sentences ? { sentences: card.sentences } : {}), id: card.id, expressionId: card.expressionId, language: card.language, text: card.text, meaning: card.meaning,
@@ -83,10 +83,10 @@ export function validateCard(value: unknown): LeafCard {
 /** 生成可直接由 Spaced Repetition 读取的多行闪卡 */
 export function renderCard(card: LeafCard, separator: string, schedule = ""): string {
     card = validateCard(card);
-    // 每张卡均使用 SR 的有效多行问答分隔符。
-    const delimiter = separator;
+    // 内置卡使用独立标记，避免同一张卡被两个引擎接管。
+    const delimiter = card.owner === "builtin" ? "<!-- ll-answer -->" : separator;
     // 元数据仅提供定位与宿主无关身份，正文内容会在解析时反向覆盖快照字段。
-    const metadata = { schema: 1, ...card };
+    const metadata = { schema: card.owner === "builtin" ? 2 : 1, ...card };
     // JSON 作为 HTML 注释时需逃逸连字符序列，防止用户文本提前关闭注释。
     const encoded = JSON.stringify(metadata).replace(/--/g, "\\u002d\\u002d").replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
     // 用显式换行提供段间留白，物理空行仍保留给 SR 判断卡片边界。
@@ -97,7 +97,7 @@ export function renderCard(card: LeafCard, separator: string, schedule = ""): st
         card.sentences?.[0]?.origin && `<small class="ll-card-source">出处：${cardLine(card.sentences[0].origin)}</small>`]
         .filter(Boolean).join('\n<br class="ll-card-gap">\n');
     if (!card.meaning.trim() || !separator.trim() || /[\r\n]/.test(separator)) throw new Error("释义不能为空，分隔符必须是单行文本");
-    return `<!-- ll-card: ${card.id} -->\n<!-- ll-meta: ${encoded} -->\n\n#word\n#### ${cardLine(card.text)}\n${delimiter}\n${answer}${schedule ? "\n" + schedule : ""}\n\n<!-- ll-end: ${card.id} -->`;
+    return `<!-- ll-card: ${card.id} -->\n<!-- ll-meta: ${encoded} -->\n\n#word\n#### ${cardLine(card.text)}\n${delimiter}\n${answer}${schedule && card.owner !== "builtin" ? "\n" + schedule : ""}\n\n<!-- ll-end: ${card.id} -->`;
 }
 /** 解析管理卡片，并优先读取用户手工编辑的可见题面和答案 */
 export function parseCards(source: string, separator: string): LocatedCard[] {
@@ -115,7 +115,7 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
         if (fences.some(block => match!.index >= block.from && match!.index < block.to)) continue;
         // 避免对未知协议或损坏元数据自动降级重写。
         const metadata = JSON.parse(match[2]);
-        if (metadata.schema !== 1) throw new Error("未知闪卡协议版本，已停止自动写回");
+        if (metadata.schema !== (metadata.owner === "builtin" ? 2 : 1)) throw new Error("未知闪卡协议版本，已停止自动写回");
         // 内容是权威，元数据中只是恢复快照。
         const card = validateCard(metadata);
         if (card.id !== match[1] || seen.has(card.id)) throw new Error("文章内存在重复或不一致的卡片 ID");
@@ -129,7 +129,7 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
         // 标题保持 H4，以兼容旧发音交互。
         const title = lines.findIndex(line => line.startsWith("#### "));
         // 题面与答案按当前 SR 多行问答格式解析。
-        const split = lines.indexOf(separator);
+        const split = lines.indexOf(card.owner === "builtin" ? "<!-- ll-answer -->" : separator);
         if (title < 0 || split !== title + 1 || !lines[split + 1]?.trim()) throw new Error("闪卡题面或分隔符损坏，请检查设置和手工修改");
         card.text = decodeCardLine(lines[title].slice(5).trim());
         card.meaning = decodeCardLine(lines[split + 1].trim());

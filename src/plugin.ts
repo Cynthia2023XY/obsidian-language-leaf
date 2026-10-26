@@ -11,6 +11,8 @@ import { normalizeCardSpacing } from "./lingualeaf/card-spacing";
 import { report } from "./lingualeaf/ui";
 import { playAudio } from "./utils/helpers";
 import store from "./store";
+import { ReviewModal } from "./lingualeaf/review/modal";
+import { MigrationModal } from "./lingualeaf/review/migration";
 
 /** 原生文章学习、词典面板和 SR 随文闪卡的插件入口 */
 export default class LinguaLeaf extends Plugin {
@@ -18,6 +20,11 @@ export default class LinguaLeaf extends Plugin {
     lingualeaf: LinguaLeafRuntime;
     /** 经白名单校验的简化配置 */
     settings: LeafPluginSettings;
+    reviewModal?: ReviewModal;
+    private openReview(source?: string): void {
+        if (this.reviewModal) { new Notice("复习窗口已经打开"); return; }
+        this.reviewModal = new ReviewModal(this, source); this.reviewModal.open();
+    }
     /** 跟随当前活动文章变化的侧栏学习按钮 */
     private readingRibbon?: HTMLElement;
     /** 面板共用的主题与词典展示状态 */
@@ -71,6 +78,10 @@ export default class LinguaLeaf extends Plugin {
             stage = "注册学习命令与运行时事件";
             this.logLifecycle(stage, "开始");
             this.lingualeaf.load();
+            this.addCommand({ id: "review-built-in", name: "开始词句复习", callback: () => this.openReview() });
+            this.addCommand({ id: "review-current-article", name: "复习当前文章词句", callback: () => { const view = this.app.workspace.getActiveViewOfType(MarkdownView); if (view?.file) this.openReview(view.file.path); else new Notice("请先打开一篇文章"); } });
+            this.addCommand({ id: "migrate-review", name: "迁移 SR 卡片到内置复习（预览）", callback: () => { if (this.reviewModal) { new Notice("请先关闭复习窗口"); return; } new MigrationModal(this).open(); } });
+            this.addRibbonIcon("layers", "开始词句复习", () => this.openReview());
             this.registerMarkdownPostProcessor(root => normalizeCardSpacing(root));
             stage = "注册侧栏按钮";
             this.logLifecycle(stage, "开始");
@@ -108,6 +119,7 @@ export default class LinguaLeaf extends Plugin {
         let stage = "卸载学习运行时";
         this.logLifecycle(stage, "开始");
         try {
+            this.reviewModal?.close();
             this.lingualeaf?.unload();
             for (const type of [SEARCH_PANEL_VIEW, LEARN_PANEL_VIEW, DATA_PANEL_VIEW]) {
                 stage = `卸载面板 ${type}`;

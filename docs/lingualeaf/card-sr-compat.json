@@ -1,11 +1,12 @@
 {
-  "testedAt": "2026-10-26T12:59:11.745Z",
+  "testedAt": "2026-10-26T13:50:36.151Z",
   "srVersion": "1.15.4",
   "srBundleSha256": "e46f3172a9dc4968de3dad5fa45eea7c20c52ea4f5760bd88444043495652cea",
   "method": "Installed SR parser and bundled clozecraft executed in isolation; no Obsidian UI or physical trackpad verification",
   "checks": [
     "LF/CRLF each retain two complete cards",
     "translation, notes, source and schedule remain inside first SR card",
-    "updating a card preserves SR schedule and card count"
+    "updating a card preserves SR schedule and card count",
+    "builtin source is ignored by real SR parser, including mixed articles"
   ]
 }

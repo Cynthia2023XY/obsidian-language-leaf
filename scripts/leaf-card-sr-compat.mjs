@@ -38,6 +38,11 @@ for (const newline of ["\n", "\r\n"]) {
     assert.equal(srContext.srParse(updated, options).length, 2);
     assert.equal(parseCards(updated, "?")[0].schedule, schedule);
 }
-const report = { testedAt: new Date().toISOString(), srVersion: JSON.parse(readFileSync(join(dirname(srPath), "manifest.json"), "utf8")).version, srBundleSha256: createHash("sha256").update(sr).digest("hex"), method: "Installed SR parser and bundled clozecraft executed in isolation; no Obsidian UI or physical trackpad verification", checks: ["LF/CRLF each retain two complete cards", "translation, notes, source and schedule remain inside first SR card", "updating a card preserves SR schedule and card count"] };
+// 内置协议与 SR 卡片混排时，实际 SR 解析器只能识别原有卡片。
+const builtin = renderCard({ ...card, id: "builtin-compat", owner: "builtin" }, "?", schedule);
+assert.equal(srContext.srParse(builtin, options).length, 0);
+assert.equal(srContext.srParse(source + "\n\n" + builtin, options).length, 2);
+assert.equal(parseCards(builtin, "?")[0].card.owner, "builtin");
+const report = { testedAt: new Date().toISOString(), srVersion: JSON.parse(readFileSync(join(dirname(srPath), "manifest.json"), "utf8")).version, srBundleSha256: createHash("sha256").update(sr).digest("hex"), method: "Installed SR parser and bundled clozecraft executed in isolation; no Obsidian UI or physical trackpad verification", checks: ["LF/CRLF each retain two complete cards", "translation, notes, source and schedule remain inside first SR card", "updating a card preserves SR schedule and card count", "builtin source is ignored by real SR parser, including mixed articles"] };
 writeFileSync("docs/lingualeaf/card-sr-compat.json", JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify(report, null, 2));

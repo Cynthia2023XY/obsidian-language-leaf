@@ -26,7 +26,7 @@
                     <button type="button" class="ll-text-button" @click="addNote"><PanelIcon name="plus" />添加笔记</button>
                 </details>
                 <details v-if="leafCapture" class="ll-optional lingualeaf-outline-field"><summary><PanelIcon name="chevron-right" />文章概览<span class="ll-muted">收录时快照</span></summary><NInput size="small" type="textarea" v-model:value="leafOutline" placeholder="文章内容概览（可选）" autosize /></details>
-                <div class="ll-capture-footer"><span class="ll-muted ll-small">随文保存 · SR 闪卡 · {{ quickSave.label }} 保存</span><NButton class="ll-save-card" size="large" type="primary" attr-type="submit" :loading="submitLoading" :disabled="!leafCapture">{{ successing ? '已保存' : failing ? '重试保存' : '保存闪卡' }}</NButton></div>
+                <div class="ll-capture-footer"><span class="ll-muted ll-small">随文保存 · {{ leafCapture?.card?.owner === "builtin" ? "内置复习" : "SR 闪卡" }} · {{ quickSave.label }} 保存</span><NButton class="ll-save-card" size="large" type="primary" attr-type="submit" :loading="submitLoading" :disabled="!leafCapture">{{ successing ? '已保存' : failing ? '重试保存' : '保存闪卡' }}</NButton></div>
             </NForm>
         </NConfigProvider>
     </div>

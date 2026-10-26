@@ -2,6 +2,7 @@ import type { LeafCard } from "./domain";
 
 /** 持久化读写端口，领域层不依赖 Vault 或 IndexedDB */
 export interface FilePort {
+    create?(path: string, content: string): Promise<void>;
     /** 获取文件；不存在时返回空值 */
     read(path: string): Promise<string | null>;
     /** 写入前由适配器创建所需目录 */

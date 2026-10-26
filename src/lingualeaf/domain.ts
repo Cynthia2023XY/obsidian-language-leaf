@@ -29,7 +29,7 @@ export interface LeafCard {
     /** 原新词表单的多条例句与出处 */
     sentences?: Array<{ text: string; trans: string; origin: string }>;
     /** 卡片调度归属 */
-    owner: "spaced-repetition";
+    owner: "spaced-repetition" | "builtin";
 }
 /** Markdown 卡片与文件中精确位置的对应 */
 export interface LocatedCard {

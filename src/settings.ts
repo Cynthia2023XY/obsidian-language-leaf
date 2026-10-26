@@ -38,7 +38,7 @@ export class SettingTab extends PluginSettingTab {
         new Setting(this.containerEl).setName("划词修饰键").setDesc("在学习模式下按住该键划选词句；Mac 可选择 Alt / Option。").addDropdown(control => control.addOptions({ shiftKey: "Shift", altKey: "Alt / Option", ctrlKey: "Ctrl", metaKey: "Command" }).setValue(draft.learning.modifier).onChange(value => { this.updateSettings(settings => { settings.learning.modifier = value as typeof draft.learning.modifier; }); }));
         new Setting(this.containerEl).setName("划选后自动查词").setDesc("仅在学习模式中生效。开启后，普通拖选或三指划选稳定后自动打开查词和新词面板；关闭时保留查词按钮及修饰键划词。").addToggle(control => control.setValue(draft.learning.autoQuerySelection).onChange(value => { this.updateSettings(settings => { settings.learning.autoQuerySelection = value; }); }));
         new Setting(this.containerEl).setName("查词自动发音").addToggle(control => control.setValue(draft.auto_pron).onChange(value => { this.updateSettings(settings => { settings.auto_pron = value; }); }));
-        new Setting(this.containerEl).setName("SR 卡片自动发音").addToggle(control => control.setValue(draft.review_auto_pron).onChange(value => { this.updateSettings(settings => { settings.review_auto_pron = value; }); }));
+        new Setting(this.containerEl).setName("复习卡片自动发音").addToggle(control => control.setValue(draft.review_auto_pron).onChange(value => { this.updateSettings(settings => { settings.review_auto_pron = value; }); }));
         new Setting(this.containerEl).setName("发音口音").addDropdown(control => control.addOptions({ "0": "美式", "1": "英式" }).setValue(draft.review_prons).onChange(value => { this.updateSettings(settings => { settings.review_prons = value as "0" | "1"; }); }));
         new Setting(this.containerEl).setName("补充段落翻译").setDesc("优先使用文章已有译文；没有译文时，允许将原段落发送到有道查询翻译。").addToggle(control => control.setValue(draft.use_machine_trans).onChange(value => { this.updateSettings(settings => { settings.use_machine_trans = value; }); }));
         this.containerEl.createEl("h3", { text: "查词词典" });
@@ -47,6 +47,10 @@ export class SettingTab extends PluginSettingTab {
             const dictionary = dicts[id as keyof typeof dicts];
             new Setting(this.containerEl).setName(dictionary.name).setDesc(dictionary.description).addToggle(control => control.setValue(draft.dictionaries[id].enable).onChange(value => { this.updateSettings(settings => { settings.dictionaries[id].enable = value; }); }));
         }
+        this.containerEl.createEl("h3", { text: "词句复习" });
+        new Setting(this.containerEl).setName("新卡片复习方式").setDesc("只影响之后新收录的卡片；已有卡片通过迁移预览单独选择。内置复习不需要启用 Spaced Repetition。").addDropdown(control => control.addOptions({ builtin: "内置 FSRS 复习", "spaced-repetition": "Spaced Repetition" }).setValue(draft.review.engine).onChange(value => { this.updateSettings(settings => { settings.review.engine = value as typeof draft.review.engine; }); }));
+        new Setting(this.containerEl).setName("每日新卡片上限").setDesc("0–100；每天凌晨 4 点按本机时区重置。到期复习不受此限制。").addText(control => control.setValue(String(draft.review.newLimit)).onChange(value => { const number = Number(value); if (value.trim() && Number.isInteger(number) && number >= 0 && number <= 100) this.updateSettings(settings => { settings.review.newLimit = number; }); }));
+        new Setting(this.containerEl).setName("目标记忆保持率").setDesc("70%–97%，默认 90%。越高，复习越频繁。").addSlider(control => control.setLimits(70, 97, 1).setValue(Math.round(draft.review.retention * 100)).setDynamicTooltip().onChange(value => { this.updateSettings(settings => { settings.review.retention = value / 100; }); }));
         this.containerEl.createEl("h3", { text: "Spaced Repetition 闪卡" });
         // SR 格式输入就地反馈，减少输入过程中的打断。
         const deck = new Setting(this.containerEl).setName("卡组标签").setDesc("与 Spaced Repetition 的卡组设置一致。");

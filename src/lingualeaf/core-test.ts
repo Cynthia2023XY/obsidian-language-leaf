@@ -134,8 +134,11 @@ describe("原生闪卡与 SR 进度保留", () => {
     it("示例代码块中的闪卡不进入真实复习索引", () => {
         expect(parseCards("````markdown\n" + renderCard(card(), "?") + "\n````", "?")).toHaveLength(0);
     });
-    it("只接受 SR 归属，不再创建内置复习卡片", () => {
-        expect(() => renderCard(card({ owner: "builtin" as any }), "?")).toThrow("不兼容");
+    it("内置卡使用独立协议，SR 不会接管且保留正文手改", () => {
+        const output = renderCard(card({ owner: "builtin" }), "?", "<!--SR:!2026-10-26,3,250-->");
+        expect(output).not.toContain("\n?\n");
+        expect(output).not.toContain("<!--SR:");
+        expect(parseCards(output, "?")[0].card.owner).toBe("builtin");
     });
     it("注释终止符和 HTML 内容无法突破元数据边界", () => {
         // 用户笔记中出现箭头或脚本也必须作为文本处理。
