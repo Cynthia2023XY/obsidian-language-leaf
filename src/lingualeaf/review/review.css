@@ -52,3 +52,10 @@
 .ll-review-audio .ll-pronunciation-status { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; font-size: 12px; line-height: 20px; color: var(--text-muted); }
 .ll-review-audio .ll-pronunciation-status > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .45; }
 .ll-review-audio .ll-pronunciation-status > button { flex-shrink: 0; }
+
+/* 先预留数行答案空间，揭晓时仅平滑调整正文，评分区高度不变。 */
+.ll-review-context .modal-content { overflow: hidden; }
+.ll-review-context .ll-review-body { box-sizing: border-box; min-height: min(260px, 35vh); flex: 0 1 auto; scrollbar-gutter: stable; }
+.ll-review-context .ll-review-columns > .ll-review-answer { min-height: 120px; }
+.ll-review-context .ll-review-footer { box-sizing: border-box; min-height: 89px; flex-shrink: 0; display: grid; align-items: center; }
+.ll-review-context .ll-review-progress, .ll-review-context .ll-review-tools { flex-shrink: 0; }

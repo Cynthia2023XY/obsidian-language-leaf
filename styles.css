@@ -1083,6 +1083,29 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 .ll-review-audio .ll-pronunciation-status > button {
   flex-shrink: 0;
 }
+.ll-review-context .modal-content {
+  overflow: hidden;
+}
+.ll-review-context .ll-review-body {
+  box-sizing: border-box;
+  min-height: min(260px, 35vh);
+  flex: 0 1 auto;
+  scrollbar-gutter: stable;
+}
+.ll-review-context .ll-review-columns > .ll-review-answer {
+  min-height: 120px;
+}
+.ll-review-context .ll-review-footer {
+  box-sizing: border-box;
+  min-height: 89px;
+  flex-shrink: 0;
+  display: grid;
+  align-items: center;
+}
+.ll-review-context .ll-review-progress,
+.ll-review-context .ll-review-tools {
+  flex-shrink: 0;
+}
 
 /* src/main.css */
 .lingualeaf-reading .view-header-title::after {

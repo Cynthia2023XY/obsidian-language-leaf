@@ -2,6 +2,7 @@ import { Modal, Notice, TFile } from "obsidian";
 import type LinguaLeaf from "../../plugin";
 import type { IndexedCard } from "../host";
 import { newId } from "../domain";
+import { animateReveal } from "./reveal-motion";
 import { onPronunciation, stopPronunciation } from "../../utils/helpers";
 import { MigrationService } from "./migration";
 import { GRADES, interval, prepare, priority, ReviewStore, reviewKey, studyDay } from "./engine";
@@ -11,6 +12,7 @@ import type { Prepared, ReviewEvent, ReviewState } from "./engine";
 export class ReviewModal extends Modal {
     private store: ReviewStore;
     private audioUnsubscribe?: () => void;
+    private cancelRevealMotion?: () => void;
     private readonly layout: "focus" | "context";
     private session = newId();
     private skipped = new Set<string>();
@@ -53,6 +55,7 @@ export class ReviewModal extends Modal {
         void this.refresh().catch(error => this.fail(error));
     }
     onClose(): void {
+        this.cancelRevealMotion?.();
         this.closed = true; this.turn++;
         this.audioUnsubscribe?.(); stopPronunciation("review");
         document.removeEventListener("keydown", this.key, true);
@@ -75,6 +78,7 @@ export class ReviewModal extends Modal {
         button.addEventListener("click", () => { button.blur(); if (!this.busy) run(); }); return button;
     }
     private async refresh(): Promise<void> {
+        this.cancelRevealMotion?.();
         stopPronunciation("review");
         const token = ++this.turn; this.busy = true;
         if (!this.initialized) {
@@ -175,6 +179,9 @@ export class ReviewModal extends Modal {
     }
     private reveal(): void {
         if (!this.current || !this.prepared || this.revealed || this.busy) return;
+        this.cancelRevealMotion?.();
+        const body = this.contentEl.querySelector<HTMLElement>(".ll-review-body");
+        const previousHeight = this.layout === "context" ? body.getBoundingClientRect().height : 0;
         this.prepared = prepare(this.prepared.id, this.prepared.before, new Date(), this.plugin.settings.review.retention);
         this.revealed = true;
         const card = this.current.card;
@@ -204,12 +211,12 @@ export class ReviewModal extends Modal {
             button.createEl("small", { text: interval(this.prepared.choices[grade.rating], this.prepared.at) });
             button.setAttribute("aria-keyshortcuts", grade.key);
         }
+        if (this.layout === "context") this.cancelRevealMotion = animateReveal(body, previousHeight, [answer, extras]);
     }
     private async grade(rating: number): Promise<void> {
         if (!this.current || !this.prepared || !this.revealed || this.busy || this.pending) return;
         if (Date.now() - this.prepared.at.getTime() > 60000) {
             this.revealed = false;
-            this.contentEl.querySelector<HTMLElement>(".ll-review-answer").empty();
             this.reveal(); new Notice("停留时间较长，复习间隔已更新，请重新选择评分"); return;
         }
         const prepared = this.prepared;
@@ -250,6 +257,7 @@ export class ReviewModal extends Modal {
     private showSuspended(rows: Array<{ item: IndexedCard; state: ReviewState }>): void {
         if (this.pending) return;
         stopPronunciation("review");
+        this.cancelRevealMotion?.();
         this.prepared = undefined; this.current = undefined; this.contentEl.empty();
         this.contentEl.createEl("h3", { text: "已暂停的卡片" });
         for (const row of rows.filter(row => row.state.suspended)) this.button(this.contentEl, `恢复：${row.item.card.text}`, () => { void this.suspend(row.item.card.id, row.state, false); });
@@ -258,6 +266,7 @@ export class ReviewModal extends Modal {
     private edit(): void {
         if (!this.current || this.pending) return;
         const selected = this.current;
+        this.cancelRevealMotion?.();
         stopPronunciation("review");
         this.prepared = undefined; this.revealed = false; this.contentEl.empty();
         this.contentEl.createEl("h3", { text: `编辑 · ${selected.card.text}` });
