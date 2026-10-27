@@ -50,10 +50,7 @@
 #youdao h1,
 #youdao h2,
 #youdao h3,
-#youdao h4 {
-  margin-top: .2em;
-  margin-bottom: .2em;
-}
+#youdao h4,
 #youdao p {
   margin-top: .2em;
   margin-bottom: .2em;
@@ -86,7 +83,7 @@
 }
 #youdao .discrimination .title {
   font-size: 1.2em;
-  font-weight: bold;
+  font-weight: 700;
 }
 #youdao .discrimination .wordGroup {
   margin-left: 10px;
