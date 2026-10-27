@@ -202,8 +202,8 @@ export class LinguaLeafRuntime {
         window.dispatchEvent(new CustomEvent("obsidian-langr-search", { detail: { selection: selected, leafCapture: request } }));
         if (selected.trim() && card.language.startsWith("en") && this.plugin.settings.auto_pron) {
             // 沿用原插件的口音设置和播放方法。
-            const { playAudio } = await import("../utils/helpers");
-            playAudio(`https://dict.youdao.com/dictvoice?type=${this.plugin.settings.review_prons}&audio=${encodeURIComponent(selected)}`);
+            const { pronounce } = await import("../utils/helpers");
+            pronounce({ text: selected, language: card.language, accent: this.plugin.settings.review_prons === "1" ? "uk" : "us", trigger: "auto", owner: "search" });
         }
     }
     /** 从原单词列表定位到右侧编辑表单，卡片身份和 SR 进度保持不变 */

@@ -45,3 +45,10 @@
 .ll-review-source > .ll-review-eyebrow { flex-shrink: 0; }
 .ll-review-source .ll-review-source-link { display: inline; height: auto; min-width: 0; padding: 0; border: 0; box-shadow: none; background: transparent; color: var(--text-accent); text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; font-size: 13px; cursor: pointer; }
 .ll-review-source-link:hover { text-decoration: underline; }
+
+/* 提示始终留在按钮右侧的固定高度行中，长音色名不撑高卡片。 */
+.ll-review-audio { display: flex; align-items: center; gap: 12px; height: 36px; min-width: 0; }
+.ll-review-audio > button { flex-shrink: 0; }
+.ll-review-audio .ll-pronunciation-status { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; font-size: 12px; line-height: 20px; color: var(--text-muted); }
+.ll-review-audio .ll-pronunciation-status > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .45; }
+.ll-review-audio .ll-pronunciation-status > button { flex-shrink: 0; }

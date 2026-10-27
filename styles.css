@@ -1053,6 +1053,36 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 .ll-review-source-link:hover {
   text-decoration: underline;
 }
+.ll-review-audio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  min-width: 0;
+}
+.ll-review-audio > button {
+  flex-shrink: 0;
+}
+.ll-review-audio .ll-pronunciation-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+.ll-review-audio .ll-pronunciation-status > span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .45;
+}
+.ll-review-audio .ll-pronunciation-status > button {
+  flex-shrink: 0;
+}
 
 /* src/main.css */
 .lingualeaf-reading .view-header-title::after {

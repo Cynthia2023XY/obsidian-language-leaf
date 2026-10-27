@@ -112,6 +112,9 @@ describe("复习样式", () => {
         expect(answer.textContent).toContain("在门槛处");
         expect(answer.querySelector(".ll-review-translation")?.textContent).toBe("旅人停下了。");
         expect(answer.querySelector("details")).toBeNull();
+        const notes = setup.modal.contentEl.querySelector<HTMLDetailsElement>(".ll-review-supplemental details")!;
+        expect(notes.querySelector("summary")?.textContent).toBe("笔记");
+        expect(notes.open).toBe(true);
         expect(setup.modal.contentEl.querySelectorAll(".ll-review-sentence")).toHaveLength(1);
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" })); await settle();
         expect((await setup.store.state("card-test")).card.state).toBe(2); setup.modal.close();
@@ -122,7 +125,11 @@ describe("复习样式", () => {
         expect(setup.modal.contentEl.textContent).not.toContain("A traveler paused.");
         button(setup.modal, "显示答案").click();
         expect(setup.modal.contentEl.textContent).toContain("A traveler paused.");
-        expect(setup.modal.contentEl.querySelector(".ll-review-answer details summary")?.textContent).toBe("译文"); setup.modal.close();
+        const details = Array.from(setup.modal.contentEl.querySelectorAll<HTMLDetailsElement>(".ll-review-answer details"));
+        expect(details[0].querySelector("summary")?.textContent).toBe("译文");
+        expect(details[0].open).toBe(false);
+        expect(details.find(item => item.querySelector("summary")?.textContent === "笔记")?.open).toBe(true);
+        setup.modal.close();
     });
     it("切换布局后重开窗口，评分和撤销沿用相同进度", async () => {
         const setup = fixture("focus"); setup.modal.open(); await settle();

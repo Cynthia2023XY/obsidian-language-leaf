@@ -9,7 +9,7 @@ import type { LeafPluginSettings } from "./lingualeaf/config";
 import { LinguaLeafRuntime } from "./lingualeaf/runtime";
 import { normalizeCardSpacing } from "./lingualeaf/card-spacing";
 import { report } from "./lingualeaf/ui";
-import { playAudio } from "./utils/helpers";
+import { pronounce, disposePronunciation, configureSpeech } from "./utils/helpers";
 import store from "./store";
 import { ReviewModal } from "./lingualeaf/review/modal";
 import { MigrationModal } from "./lingualeaf/review/migration";
@@ -57,6 +57,7 @@ export default class LinguaLeaf extends Plugin {
             stage = "读取并校验设置";
             this.logLifecycle(stage, "开始");
             this.settings = readSettings(await this.loadData());
+            configureSpeech(this.settings.speech);
             stage = "同步主题";
             this.logLifecycle(stage, "开始");
             store.dark = document.body.hasClass("theme-dark");
@@ -119,6 +120,7 @@ export default class LinguaLeaf extends Plugin {
         let stage = "卸载学习运行时";
         this.logLifecycle(stage, "开始");
         try {
+            disposePronunciation();
             this.reviewModal?.close();
             this.lingualeaf?.unload();
             for (const type of [SEARCH_PANEL_VIEW, LEARN_PANEL_VIEW, DATA_PANEL_VIEW]) {
@@ -177,6 +179,7 @@ export default class LinguaLeaf extends Plugin {
         const next = readSettings(settings);
         await this.saveData(next);
         this.settings = next;
+        configureSpeech(next.speech);
         this.lingualeaf.host.settings = next.learning;
         store.dictsChange = !store.dictsChange;
     }
@@ -223,7 +226,7 @@ export default class LinguaLeaf extends Plugin {
 
             lastAutoPronouncedTitle = title;
             lastAutoPronouncedWord = word;
-            this.playReviewCardWord(word);
+            this.playReviewCardWord(word, "auto");
         };
         // 安排一次自动发音检查，避免同一次页面渲染触发多次播放
         const scheduleReviewCardPronounce = () => {
@@ -256,15 +259,9 @@ export default class LinguaLeaf extends Plugin {
         pronounceVisibleReviewCard();
     }
 
-    /** 播放间隔复习卡片中单词的有道发音 */
-    playReviewCardWord(word: string) {
-        // 复习卡片发音使用的口音配置
-        let accent = this.settings.review_prons;
-        // 有道单词发音音频地址
-        let wordUrl =
-            `https://dict.youdao.com/dictvoice?type=${accent}&audio=` +
-            encodeURIComponent(word);
-        playAudio(wordUrl);
+    /** 复习与查词共用可取消、带备用来源的发音服务。 */
+    playReviewCardWord(word: string, trigger: "manual" | "auto" = "manual", language = "en") {
+        pronounce({ text: word, language, accent: this.settings.review_prons === "1" ? "uk" : "us", trigger, owner: "review" });
     }
 
 }

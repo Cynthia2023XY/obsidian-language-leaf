@@ -9,6 +9,7 @@
                 <button type="submit" class="ll-icon-button" aria-label="查询"><PanelIcon name="search" /></button>
             </form>
             <div v-if="word" class="ll-query-heading"><h2>{{ word }}</h2><button type="button" class="ll-icon-button" aria-label="播放单词发音" @click="pronounce"><PanelIcon name="volume-2" /></button></div>
+            <p v-if="audioMessage" class="ll-muted ll-small" role="status">{{ audioMessage }} <button v-if="audioFailed" type="button" @click="pronounce">重试发音</button></p>
             <div class="dict-area">
                 <DictItem v-for="(cp, i) in components" :key="cp.id" :loading="loadings[i]" :name="cp.name" :id="cp.id" :default-open="i === 0">
                     <KeepAlive><Component @loading="loading" :is="cp.type" :word="word" v-show="shows[i]" /></KeepAlive>
@@ -29,10 +30,16 @@ import { usePanelTheme } from "../lingualeaf/panel-theme";
 import DictItem from "./DictItem.vue";
 import PluginType from "@/plugin";
 import { dicts } from "@dict/list";
-import { playAudio } from "@/utils/helpers";
+import { playAudio, pronounce as speak, onPronunciation, stopPronunciation } from "@/utils/helpers";
 
 /** 当前查词面板所属插件 */
 const plugin = getCurrentInstance().appContext.config.globalProperties.plugin as PluginType;
+const audioMessage = ref("");
+const audioFailed = ref(false);
+const unsubscribeAudio = onPronunciation(state => { if (state.owner === "search") { audioMessage.value = state.message; audioFailed.value = state.phase === "error"; } });
+onUnmounted(() => { unsubscribeAudio(); stopPronunciation("search"); });
+
+
 
 /** 原生主题色随 Obsidian 主题实时更新 */
 const themeConfig = usePanelTheme();
@@ -122,7 +129,7 @@ function handleSearch() {
 
 /** 显式发音沿用已有有道音频服务与口音配置 */
 function pronounce(): void {
-    if (word.value.trim()) playAudio(`https://dict.youdao.com/dictvoice?type=${plugin.settings.review_prons}&audio=${encodeURIComponent(word.value)}`);
+    if (word.value.trim()) speak({ text: word.value, language: plugin.settings.learning.language, accent: plugin.settings.review_prons === "1" ? "uk" : "us", trigger: "manual", owner: "search" });
 }
 
 function handleClick(evt: MouseEvent) {
@@ -131,7 +138,7 @@ function handleClick(evt: MouseEvent) {
         evt.preventDefault();
         evt.stopPropagation();
         let url = (target as HTMLAnchorElement).href;
-        playAudio(url);
+        playAudio(url, word.value);
 
     }
     else if (target.tagName === "A") {
@@ -143,6 +150,8 @@ function handleClick(evt: MouseEvent) {
     }
 }
 
+
+watch(word, () => { stopPronunciation("search"); audioMessage.value = ""; audioFailed.value = false; }, { flush: "sync" });
 
 onMounted(() => {
     addEventListener('obsidian-langr-search', onSearch);

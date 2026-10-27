@@ -18,7 +18,7 @@ describe("简化配置", () => {
         // 当前数据目录不复用旧数据库或独立调度事件。
         const config = readSettings(null);
         expect(config.learning).toEqual({ language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" });
-        expect(Object.keys(config).sort()).toEqual(["auto_pron", "dictionaries", "learning", "review", "review_auto_pron", "review_prons", "use_machine_trans"]);
+        expect(Object.keys(config).sort()).toEqual(["auto_pron", "dictionaries", "learning", "review", "review_auto_pron", "review_prons", "speech", "use_machine_trans"]);
     });
     it("不接入旧插件数据库、服务端、阅读器和内置调度选项", () => {
         // 不迁移旧字段，也不保留隐藏的旧功能开关。
@@ -43,5 +43,15 @@ describe("简化配置", () => {
         expect(config.learning.deck).toBe("#flashcards");
         expect(config.learning.separator).toBe("?");
         expect(config.learning.dataFolder).toBe("LinguaLeafData");
+    });
+});
+
+
+describe("系统声音设置", () => {
+    it("旧设置默认启用并自动选择，新设置可以关闭和保存音色", () => {
+        expect(readSettings(null).speech).toEqual({ enabled: true, voice: "" });
+        const settings = readSettings({ speech: { enabled: false, voice: "com.apple.voice.samantha" } });
+        expect(readSettings(JSON.parse(JSON.stringify(settings))).speech).toEqual(settings.speech);
+        expect(readSettings({ speech: { voice: 5 } }).speech.voice).toBe("");
     });
 });

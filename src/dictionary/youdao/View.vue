@@ -2,7 +2,7 @@
     <div id="youdao">
         <h2>{{ word }}</h2>
         <div class="pronunces">
-            <span class="pron" v-for="i in prons.length" @click="playAudio(prons[i - 1].url)">{{
+            <span class="pron" v-for="i in prons.length" @click="playAudio(prons[i - 1].url, word)">{{
                 prons[i - 1].phsym
             }}</span>
         </div>
@@ -24,7 +24,7 @@ import { ref, watch, nextTick } from 'vue'
 import Collins from "./YDCollins.vue"
 import { search, YoudaoResultLex } from "./engine"
 import { useLoading } from "@dict/uses"
-import { playAudio } from "@/utils/helpers"
+import { playAudio, registerRecording } from "@/utils/helpers"
 
 // import Plugin from "../plugin"
 // const plugin: Plugin = getCurrentInstance().appContext.config.globalProperties.plugin
@@ -57,6 +57,10 @@ async function onSearch(): Promise<boolean> {
     meaningHTML.value = result.basic;
     translationHTML.value = result.translation;
     prons.value = result.prons;
+    for (const pron of result.prons) {
+        const accent = /英|UK/i.test(pron.phsym) || /[?&]type=1(?:&|$)/.test(pron.url) ? "uk" : "us";
+        registerRecording(props.word, accent, pron.url);
+    }
     collins.value = result.collins;
     discriminationHTML.value = result.discrimination;
     wordGroupHTML.value = result.wordGroup;

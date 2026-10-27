@@ -2,6 +2,7 @@ import { Modal, Notice, TFile } from "obsidian";
 import type LinguaLeaf from "../../plugin";
 import type { IndexedCard } from "../host";
 import { newId } from "../domain";
+import { onPronunciation, stopPronunciation } from "../../utils/helpers";
 import { MigrationService } from "./migration";
 import { GRADES, interval, prepare, priority, ReviewStore, reviewKey, studyDay } from "./engine";
 import type { Prepared, ReviewEvent, ReviewState } from "./engine";
@@ -9,6 +10,7 @@ import type { Prepared, ReviewEvent, ReviewState } from "./engine";
 /** The host owns the close button; answer content scrolls independently of grading. */
 export class ReviewModal extends Modal {
     private store: ReviewStore;
+    private audioUnsubscribe?: () => void;
     private readonly layout: "focus" | "context";
     private session = newId();
     private skipped = new Set<string>();
@@ -41,10 +43,18 @@ export class ReviewModal extends Modal {
         if (this.layout === "context") this.modalEl.addClass("ll-review-context");
         this.titleEl.setText(this.layout === "context" ? "语叶 · 语境对照" : "语叶 · 词句复习");
         document.addEventListener("keydown", this.key, true);
+        this.audioUnsubscribe = onPronunciation(state => {
+            if (state.owner !== "review" || this.closed) return;
+            const status = this.contentEl.querySelector<HTMLElement>(".ll-pronunciation-status");
+            if (!status) return;
+            status.empty(); status.setAttribute("title", state.message); status.createSpan({ text: state.message });
+            if (state.phase === "error" && this.current) this.button(status, "重试发音", () => this.plugin.playReviewCardWord(this.current.card.text, "manual", this.current.card.language));
+        });
         void this.refresh().catch(error => this.fail(error));
     }
     onClose(): void {
         this.closed = true; this.turn++;
+        this.audioUnsubscribe?.(); stopPronunciation("review");
         document.removeEventListener("keydown", this.key, true);
         if (this.timer) window.clearTimeout(this.timer);
         this.plugin.reviewModal = undefined;
@@ -65,6 +75,7 @@ export class ReviewModal extends Modal {
         button.addEventListener("click", () => { button.blur(); if (!this.busy) run(); }); return button;
     }
     private async refresh(): Promise<void> {
+        stopPronunciation("review");
         const token = ++this.turn; this.busy = true;
         if (!this.initialized) {
             const raw = await this.plugin.lingualeaf.host.port.read(this.sessionPath());
@@ -133,8 +144,10 @@ export class ReviewModal extends Modal {
         const body = this.contentEl.createDiv({ cls: "ll-review-body" });
         body.createDiv({ text: selected.item.card.kind === "phrase" ? "短语 · 回想它在原文中的含义" : "单词 · 回想它在原文中的含义", cls: "ll-review-eyebrow" });
         const title = body.createEl("h2", { text: selected.item.card.text, cls: "ll-review-expression" });
-        title.addEventListener("click", () => this.plugin.playReviewCardWord(selected.item.card.text));
-        this.button(body, "播放发音", () => this.plugin.playReviewCardWord(selected.item.card.text));
+        title.addEventListener("click", () => this.plugin.playReviewCardWord(selected.item.card.text, "manual", selected.item.card.language));
+        const audioRow = body.createDiv({ cls: "ll-review-audio" });
+        this.button(audioRow, "播放发音", () => this.plugin.playReviewCardWord(selected.item.card.text, "manual", selected.item.card.language));
+        audioRow.createDiv({ cls: "ll-pronunciation-status", attr: { role: "status" } });
         if (this.layout === "context") {
             const columns = body.createDiv({ cls: "ll-review-columns" });
             const original = columns.createEl("section", { cls: "ll-review-original", attr: { "aria-label": "原句" } });
@@ -158,7 +171,7 @@ export class ReviewModal extends Modal {
         this.button(actions, "暂停此卡", () => { void this.suspend(selected.item.card.id, selected.state, true); });
         this.button(actions, "编辑", () => this.edit());
         this.button(actions, "打开出处", () => { void this.app.workspace.openLinkText(selected.item.path, "", true); });
-        if (this.plugin.settings.review_auto_pron) this.plugin.playReviewCardWord(selected.item.card.text);
+        if (this.plugin.settings.review_auto_pron) this.plugin.playReviewCardWord(selected.item.card.text, "auto", selected.item.card.language);
     }
     private reveal(): void {
         if (!this.current || !this.prepared || this.revealed || this.busy) return;
@@ -177,7 +190,12 @@ export class ReviewModal extends Modal {
         const supplemental = this.layout === "context" ? this.contentEl.querySelector<HTMLElement>(".ll-review-body") : answer;
         supplemental.querySelector(".ll-review-supplemental")?.remove();
         const extras = supplemental.createDiv({ cls: "ll-review-supplemental" });
-        for (const [label, text] of [["译文", this.layout === "context" ? "" : card.translation], ["笔记", card.notes], ["概览", card.outline]]) if (text) { const details = extras.createEl("details"); details.createEl("summary", { text: label }); details.createEl("p", { text }); }
+        for (const [label, text] of [["译文", this.layout === "context" ? "" : card.translation], ["笔记", card.notes], ["概览", card.outline]]) if (text) {
+            const details = extras.createEl("details");
+            details.open = label === "笔记";
+            details.createEl("summary", { text: label });
+            details.createEl("p", { text });
+        }
         for (const entry of (card.sentences || []).slice(1)) { const detail = extras.createEl("details"); detail.createEl("summary", { text: "补充例句" }); detail.createEl("p", { text: entry.text }); detail.createEl("p", { text: entry.trans }); }
         const footer = this.contentEl.querySelector<HTMLElement>(".ll-review-footer"); footer.empty(); footer.addClass("ll-review-grades");
         for (const grade of GRADES) {
@@ -231,6 +249,7 @@ export class ReviewModal extends Modal {
     }
     private showSuspended(rows: Array<{ item: IndexedCard; state: ReviewState }>): void {
         if (this.pending) return;
+        stopPronunciation("review");
         this.prepared = undefined; this.current = undefined; this.contentEl.empty();
         this.contentEl.createEl("h3", { text: "已暂停的卡片" });
         for (const row of rows.filter(row => row.state.suspended)) this.button(this.contentEl, `恢复：${row.item.card.text}`, () => { void this.suspend(row.item.card.id, row.state, false); });
@@ -239,6 +258,7 @@ export class ReviewModal extends Modal {
     private edit(): void {
         if (!this.current || this.pending) return;
         const selected = this.current;
+        stopPronunciation("review");
         this.prepared = undefined; this.revealed = false; this.contentEl.empty();
         this.contentEl.createEl("h3", { text: `编辑 · ${selected.card.text}` });
         const inputs = [ ["释义", "meaning"], ["原句", "sentence"], ["译文", "translation"], ["笔记", "notes"] ] as const;

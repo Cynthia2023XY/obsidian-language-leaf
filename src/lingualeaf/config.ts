@@ -7,6 +7,7 @@ export interface LeafPluginSettings {
     review: { engine: "builtin" | "spaced-repetition"; newLimit: number; retention: number; layout: "focus" | "context" };
     /** 查词后自动播放发音 */
     auto_pron: boolean;
+    speech: { enabled: boolean; voice: string };
     /** SR 卡片展示时自动发音 */
     review_auto_pron: boolean;
     /** 有道发音口音，0 美式、1 英式 */
@@ -34,6 +35,7 @@ export function readSettings(value: unknown): LeafPluginSettings {
         deck: typeof learning.deck === "string" && /^#[\p{L}\p{N}_/-]+$/u.test(learning.deck) ? learning.deck : "#flashcards",
         separator: typeof learning.separator === "string" && learning.separator.trim() && !/[\r\n<>]/.test(learning.separator) ? learning.separator : "?",
         dataFolder: "LinguaLeafData" },
+        speech: { enabled: data.speech?.enabled !== false, voice: typeof data.speech?.voice === "string" ? data.speech.voice : "" },
         auto_pron: data.auto_pron !== false, review_auto_pron: data.review_auto_pron !== false,
         review_prons: data.review_prons === "1" ? "1" : "0", use_machine_trans: data.use_machine_trans !== false, dictionaries };
 }
