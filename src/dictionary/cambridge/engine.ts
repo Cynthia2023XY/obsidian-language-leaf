@@ -1,3 +1,4 @@
+import { getLanguage } from "obsidian";
 import { fetchDirtyDOM } from '../helpers';
 // import { getStaticSpeaker } from '@/components/Speaker'
 import {
@@ -16,15 +17,19 @@ import {
     //   getChsToChz
 } from '../helpers';
 
+/** 剑桥词典原文地址跟随宿主界面语言选择中英文词典 */
 export const getSrcPage: GetSrcPageFunction = (text) => {
     //   let { lang } = profile.dicts.all.cambridge.options
+    // 宿主语言映射到剑桥支持的数据集。
     const langDict: { [K in string]: string } = {
         "en": "en",
         "zh": "en-chs",
         "zh-TW": "en-chz",
     };
-    let language = window.localStorage.getItem("language");
-    let lang = langDict[language] || "en";
+    // 语言偏好通过宿主 API 获取，不依赖浏览器存储键。
+    const language = getLanguage();
+    // 未匹配的数据集使用英文原文。
+    const lang = langDict[language] || "en";
     //   if (lang === 'default') {
     //     switch (config.langCode) {
     //       case 'zh-CN':
