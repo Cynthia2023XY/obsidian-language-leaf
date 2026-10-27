@@ -1,10 +1,10 @@
 {
-  "id": "language-leaf",
-  "name": "Language Leaf",
-  "version": "0.2.8",
-  "minAppVersion": "1.14.4",
-  "description": "在原生 Markdown 中阅读、查询和收录词句，保存为 Spaced Repetition 闪卡。",
-  "author": "Cynthia Ding",
-  "authorUrl": "",
-  "isDesktopOnly": true
+    "id": "language-leaf",
+    "name": "Language Leaf",
+    "version": "0.2.9",
+    "minAppVersion": "1.14.4",
+    "description": "在原生 Markdown 中阅读、查询和收录词句，保存为 Spaced Repetition 闪卡。",
+    "author": "Cynthia Ding",
+    "authorUrl": "",
+    "isDesktopOnly": true
 }

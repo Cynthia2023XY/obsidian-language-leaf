@@ -1,5 +1,21 @@
 # Language Leaf · 语叶
 
+## Overview
+
+Language Leaf helps you read native Markdown, look up words and sentences, and save vocabulary as Spaced Repetition flashcards in the same note.
+
+### Installation and usage
+
+Download `main.js`, `manifest.json`, and `styles.css` from the latest GitHub release. Copy them to `<vault configuration folder>/plugins/language-leaf/`, restart Obsidian, and enable Language Leaf in Community plugins. Preserve an existing `data.json` when updating.
+
+Run the learning-mode command on a Markdown note, then hold Shift while selecting text to look it up. Use the new-word panel to edit and save a flashcard. Alt/Option selection is configurable. Flashcard review uses the separate Spaced Repetition plugin.
+
+### Privacy and attribution
+
+Enabled dictionaries receive the selected word or sentence. Optional paragraph translation sends the original paragraph to Youdao when no translation is present. Pronunciation requests use Youdao audio services. Notes and learning data stay in your vault; the plugin provides no remote data sync.
+
+This project is derived from [Language Learner by the_tree](https://github.com/guopenghui/obsidian-language-learner), retains dictionary and Vue panel code, and preserves the original MIT license and attribution. It is independently maintained by Cynthia Ding.
+
 作者：Cynthia Ding。
 
 [代码仓库](https://github.com/Cynthia2023XY/obsidian-language-leaf) · [问题反馈](https://github.com/Cynthia2023XY/obsidian-language-leaf/issues)
@@ -19,7 +35,7 @@
 
 查词会发送词句到所启用的第三方词典；启用补充段落翻译且没有现成译文时，会发送原段落到有道。查词及 SR 自动发音访问有道音频服务。学习数据保存在本地 Vault，没有联网同步。
 
-- 桌面 Obsidian 1.14.4 起；插件 ID 为 `language-leaf`，测试库安装目录为 `.obsidian/plugins/language-leaf/`，尚未发布新 Release。
+- 桌面 Obsidian 1.14.4 起；插件 ID 为 `language-leaf`，测试库安装目录为 `.obsidian/plugins/language-leaf/`，版本与下载见 GitHub Releases。
 - [使用与开发说明](docs/lingualeaf/使用与开发说明.md)
 - [运行验收记录](docs/lingualeaf/runtime-smoke.json)
 
@@ -37,10 +53,10 @@ Language Leaf 最初基于 [guopenghui/obsidian-language-learner](https://github
 
 ```sh
 npm ci
-npm run test:run -- --pool=forks --poolOptions.forks.singleFork
+npm run test:run -- --pool=forks --maxWorkers=1 --no-file-parallelism
 npm run build
 ```
 
 将构建得到的 `main.js`、`manifest.json`、`styles.css` 放入测试笔记库的 `.obsidian/plugins/language-leaf/`，保留已有 `data.json`。重新加载插件后测试。
 
-本次迁移未创建 Release，尚未提交社区市场。发布流程见 [仓库迁移与维护](docs/repository-migration.md)。
+标准插件附件通过 GitHub Actions 构建并生成来源证明。社区目录审核状态以目录页面为准。发布流程见 [仓库迁移与维护](docs/repository-migration.md)。
