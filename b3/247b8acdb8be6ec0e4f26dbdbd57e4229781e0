@@ -1,0 +1,35 @@
+docs/releases/0.2.11.md
+  s_8768effc74544c::t_7dd8fb990e105c 1-8
+esbuild.config.mjs
+  s_8768effc74544c::t_34ee71c805824e 3-4
+manifest.json
+  s_8768effc74544c::t_be55d27f1b643a 4
+package-lock.json
+  s_8768effc74544c::t_24a36be1e6e0a2 3,9
+package.json
+  s_8768effc74544c::t_fa1eac514d1719 3
+src/dictionary/youdao/engine.ts
+  s_8768effc74544c::t_cf4fafec31b1e4 169-170
+src/lingualeaf/panel-theme.ts
+  s_8768effc74544c::t_01a2a3b0d89b7b 11-12,16
+src/settings.ts
+  s_8768effc74544c::t_3e86893320dbfd 37,58,64
+versions.json
+  s_8768effc74544c::t_96464a1a709bec 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "b3247b8acdb8be6ec0e4f26dbdbd57e4229781e0",
+  "prompts": {},
+  "sessions": {
+    "s_8768effc74544c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17bd7-df0a-7412-a900-b698369eab3c",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
