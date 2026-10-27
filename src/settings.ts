@@ -34,7 +34,7 @@ export class SettingTab extends PluginSettingTab {
     /** 每次打开设置时读取当前配置，保留原生主题样式 */
     private renderSettings(container: HTMLElement): void {
         container.empty();
-        new Setting(container).setName("Language Leaf").setHeading();
+        new Setting(container).setName("阅读与查词").setHeading();
         container.createEl("p", { text: "更改自动保存并生效。", cls: "setting-item-description" });
         // 控件初始值使用副本，每次修改独立校验后自动保存。
         const draft = readSettings(this.plugin.settings);
@@ -55,13 +55,13 @@ export class SettingTab extends PluginSettingTab {
         const deck = new Setting(container).setName("卡组标签").setDesc("与 Spaced Repetition 的卡组设置一致。");
         // 错误文案继承 Obsidian 原生字体与主题颜色。
         const deckError = deck.descEl.createDiv({ attr: { role: "alert" } });
-        deckError.style.color = "var(--text-error)";
+        deckError.setCssStyles({ color: "var(--text-error)" });
         deck.addText(control => control.setValue(draft.learning.deck).onChange(value => { this.updateSettings(settings => { settings.learning.deck = value.trim(); }, deckError); }));
         // 已有闪卡时保持原分隔符，防止既有卡片失去识别能力。
         const separator = new Setting(container).setName("多行问答分隔符").setDesc("与 Spaced Repetition 一致；已有卡片时不直接更改。");
         // 校验消息跟随对应输入，不影响其他设置的保存。
         const separatorError = separator.descEl.createDiv({ attr: { role: "alert" } });
-        separatorError.style.color = "var(--text-error)";
+        separatorError.setCssStyles({ color: "var(--text-error)" });
         separator.addText(control => control.setValue(draft.learning.separator).onChange(value => { this.updateSettings(settings => { settings.learning.separator = value; }, separatorError); }));
     }
 }

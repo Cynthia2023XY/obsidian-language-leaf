@@ -8,12 +8,12 @@ export function usePanelTheme() {
         // 主题切换和主题 CSS 更新都会刷新组件颜色。
         void store.dark; void store.themeChange;
         // 借助浏览器解析主题中的嵌套变量，不固定深色或浅色调色板。
-        const probe = document.createElement("span");
-        probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
+        const probe = createEl("span");
+        probe.setCssStyles({ position: "absolute", visibility: "hidden", pointerEvents: "none" });
         document.body.appendChild(probe);
         // 组件库需要实际颜色来计算悬停和焦点色。
         const color = (token: string): string => {
-            probe.style.color = `var(${token})`;
+            probe.setCssStyles({ color: `var(${token})` });
             return getComputedStyle(probe).color;
         };
         // 三个面板共用原生正文、背景、强调色和边框。

@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
-import builtins from 'builtin-modules';
+/** Node 官方内置模块列表用于排除 Electron 宿主提供的模块 */
+import { builtinModules as builtins } from 'node:module';
 import vue from "esbuild-plugin-vue3";
 
 /** 为发布产物保留源码仓库提示 */
