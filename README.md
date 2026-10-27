@@ -1,60 +1,41 @@
-# Language Leaf · 语叶
+# Language Leaf
 
-作者：Cynthia Ding。
+[中文使用与开发说明](README.zh-CN.md)
 
-[代码仓库](https://github.com/Cynthia2023XY/obsidian-language-leaf) · [问题反馈](https://github.com/Cynthia2023XY/obsidian-language-leaf/issues)
+Read native Markdown, look up words and sentences, and save vocabulary as flashcards in the same note. Review with the built-in FSRS engine or the separate Spaced Repetition plugin.
 
-在 Obsidian 原生 Markdown 中阅读、查词和收录词句，直接保存为同篇文章中的 Spaced Repetition 闪卡。
+## Installation and usage
 
-提供五条命令：
+Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/Cynthia2023XY/obsidian-language-leaf/releases/latest). Copy them to `<vault configuration folder>/plugins/language-leaf/`, reload Obsidian, and enable Language Leaf in Community plugins. Preserve your existing `data.json`. Requires desktop Obsidian 1.14.4 or later.
 
-1. 切换当前文档为学习模式
-2. 打开单词列表
-3. 打开查词面板
-4. 打开新词面板
-5. 查询选中的词句（可在快捷键设置中自行绑定）
+- Enable learning mode on a Markdown note. Hold Shift while selecting text, or configure Alt/Option. Three-finger selection can query when the modifier is released. Alternatively, enable automatic selection lookup or click the selection's lookup button.
+- Edit the new-word form and save with Command+Enter on macOS or Ctrl+Enter on Windows/Linux. The shortcut applies inside the new-word panel.
+- Choose the review engine for new cards in settings. Existing cards retain their engine unless explicitly migrated through the migration preview.
+- Built-in FSRS review supports recall and context layouts, audio, daily new-card limits, undo, pause/resume, and source-note navigation. Space reveals the answer; arrow keys rate it after reveal.
+- Switching a note to editing exits learning mode.
 
-保留原 Language Learner 的单词表、左侧词典和右侧新词表单样式。普通文章无需 `langr` 标记或正文包绕，默认 Shift 划词，也可选择 Alt / Option。已内置双语 `translation` Callout 样式。学习模式支持先划选再点选区旁的“查词”；在设置开启“划选后自动查词”后，普通拖选和三指划选稳定后会自动打开查词及新词面板。切到编辑视图时退出学习模式并提示。查询命令始终可在命令面板搜索。新词面板统一用 `⌘ Enter`（Mac）/ `Ctrl Enter`（Windows、Linux）保存，释义为单行；闪卡采用精简字段名称和段间留白，兼容旧卡片与 SR 进度。
+## Review data and migration
 
-当前不提供旧数据库、旧阅读器、服务端连接、迁移工具、独立统计、内置复习和引擎转换。现有笔记与旧数据不自动迁移、转换或删除。
+Card content stays in Markdown. Built-in review state is stored as append-only events under `LinguaLeafData/review/` by default. Synchronize the entire data folder and resolve sync conflicts before continuing review.
 
-查词会发送词句到所启用的第三方词典；启用补充段落翻译且没有现成译文时，会发送原段落到有道。查词及 SR 自动发音访问有道音频服务。学习数据保存在本地 Vault，没有联网同步。
+SR migration is optional and creates backups. SM-2 schedules are approximations; rollback is supported before the first built-in rating. Migrating the same card repeatedly is not supported. Existing notes, vocabulary, and settings are not automatically migrated from the old Language Learner plugin.
 
-- 桌面 Obsidian 1.14.4 起；插件 ID 为 `language-leaf`，测试库安装目录为 `.obsidian/plugins/language-leaf/`，尚未发布新 Release。
-- [使用与开发说明](docs/lingualeaf/使用与开发说明.md)
-- [运行验收记录](docs/lingualeaf/runtime-smoke.json)
+## Privacy and attribution
 
-## 项目来源与致谢
+Enabled dictionaries receive the selected word or sentence. Optional paragraph translation sends the original paragraph to Youdao when no translation is present. Online pronunciation uses dictionary recordings or Youdao audio. System speech uses voices available on the device through Obsidian; voice availability and quality depend on the system. Notes and review data stay in your vault; the plugin provides no remote data sync.
 
-Language Leaf 最初基于 [guopenghui/obsidian-language-learner](https://github.com/guopenghui/obsidian-language-learner) 重构，沿用了原项目的词典与部分 Vue 面板实现，现由 Cynthia Ding 独立开发和维护。感谢原作者 the_tree（guopenghui）的工作。
+This project is derived from [Language Learner by the_tree](https://github.com/guopenghui/obsidian-language-learner), retains dictionary and Vue panel code, and preserves the original MIT license and attribution. It is independently maintained by Cynthia Ding. Independent maintenance does not imply that inherited code was written from scratch.
 
-本仓库保留完整开发主线提交历史、原作者署名、MIT 许可及代码中的第三方来源说明。独立仓库不表示所有代码均为从零编写。
+The built-in review engine uses [ts-fsrs 5.4.1](https://github.com/open-spaced-repetition/ts-fsrs), licensed under MIT. See [third-party license](licenses/ts-fsrs-LICENSE).
 
-2026-10-25 起，后续开发和问题反馈统一在本仓库进行；[旧 fork](https://github.com/Cynthia2023XY/obsidian-language-learner) 保留迁移说明。插件名称、ID 和当前版本保持为 Language Leaf、`language-leaf`、`0.2.8`。历史标签仅用于追溯原项目，不代表 Language Leaf 的发布版本。
+## Development
 
-## 构建与发布
-
-使用 Node.js 22，克隆本仓库后运行：
+Use Node.js 22.12 or later:
 
 ```sh
 npm ci
-npm run test:run -- --pool=forks --poolOptions.forks.singleFork
+npm run test:run -- --pool=forks --maxWorkers=1 --no-file-parallelism
 npm run build
 ```
 
-将构建得到的 `main.js`、`manifest.json`、`styles.css` 放入测试笔记库的 `.obsidian/plugins/language-leaf/`，保留已有 `data.json`。重新加载插件后测试。
-
-本次迁移未创建 Release，尚未提交社区市场。发布流程见 [仓库迁移与维护](docs/repository-migration.md)。
-
-
-### 内置 FSRS 词句复习
-
-- 在设置的“新卡片复习方式”选择“内置 FSRS 复习”。原有安装默认维持 SR；更改设置只影响新卡片。
-- 命令“开始词句复习”覆盖词库；“复习当前文章词句”限定当前文章。空格揭晓答案，**← 不记得、↓ 不确定、↑ 记得、→ 简单**。未揭晓、输入编辑、组合输入和长按时不会误评分。
-- 设置 → Language Leaf → 词句复习 → **复习样式** 可选择“专注回忆”或“语境对照”，重新打开复习窗口生效。语境对照先展示原句，揭晓后并排显示释义和译文，窄窗口上下排列；切换布局沿用同一份复习进度。
-- 支持间隔预览、撤销上次评分、暂停与恢复、当轮跳过、原文定位、发音及原位编辑。每日新词默认 10 张，按本机时区凌晨 4 点换日。
-- 内容保存在文章中；进度以只创建、不覆盖的版本事件保存在 `LinguaLeafData/review/`，支持重启恢复。请同步整个数据目录；出现同步冲突时停止评分并处理冲突副本。
-- “迁移 SR 卡片到内置复习（预览）”逐张选择，先备份再转换。完整 FSRS 状态按字段导入，但不导入旧日志或自定义算法参数；SM-2 标为近似转换，也可重新开始。尚未评分时可回退；评分后不支持恢复旧 SR 进度。回退后保留审计记录，此版本不支持同一卡片反复迁移。
-- 固定使用 [ts-fsrs 5.4.1](https://github.com/open-spaced-repetition/ts-fsrs)，FSRS-6 模型；MIT 许可全文见 [licenses/ts-fsrs-LICENSE](licenses/ts-fsrs-LICENSE)。不包含参数训练器或额外服务。
-
-发音设置提供“启用系统朗读”和“系统朗读声音”：可刷新声音列表并试听，按声音名称与语言选择；播放状态显示实际音色。关闭系统朗读后仍保留在线词典录音，但短语可能无法发音。自动音色选择会避开已知特殊效果声音；音质请以设备实际试听为准。
+Release assets are built and attested in GitHub Actions. See [release notes](docs/releases/) and [repository maintenance](docs/repository-migration.md). Licensed under [MIT](LICENSE).

@@ -229,7 +229,8 @@ export class LeafHost {
             await this.apply(operation, false);
             await this.scan();
         });
-        this.writes = action.catch(() => undefined);
+        // 当前收录失败仍由调用方感知，队列继续接受后续保存。
+        this.writes = action.catch((): void => undefined);
         return action;
     }
     /** 用最新文件内容应用操作，恢复时不覆盖已经落盘的卡片 */

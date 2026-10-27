@@ -1,4 +1,5 @@
 import { Platform } from "obsidian";
+import type { Scope } from "obsidian";
 
 /** 面板内统一使用宿主平台的 Mod+Enter，普通回车交还字段。 */
 export function createQuickSave(save: () => void, mac = Platform.isMacOS) {
@@ -9,10 +10,25 @@ export function createQuickSave(save: () => void, mac = Platform.isMacOS) {
         if (mod && !event.altKey && !event.shiftKey) {
             event.preventDefault(); event.stopPropagation();
             if (!event.repeat) save();
+        } else if (event.ctrlKey || event.metaKey) {
+            // 不属于当前平台的组合键也不能借助浏览器的隐式表单提交保存。
+            event.preventDefault();
         } else if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && target?.tagName === "INPUT" && !target.closest(".n-base-selection, [role=combobox]")) {
             // 单行字段不允许隐式提交，标签候选仍可用 Enter 确认。
             event.preventDefault();
         }
     };
     return { keydown, label: mac ? "⌘ Enter" : "Ctrl Enter" };
+}
+
+/** 先在宿主快捷键层处理，避免 Mod+Enter 在到达表单前被父级作用域消费。 */
+export function installQuickSaveScope(scope: Pick<Scope, "register" | "unregister">, content: HTMLElement, save: () => void): () => void {
+    const shortcut = createQuickSave(save);
+    const handler = scope.register(["Mod"], "Enter", event => {
+        const target = event.target as Node | null;
+        if (!target || !content.contains(target)) return;
+        shortcut.keydown(event);
+        if (event.defaultPrevented) return false;
+    });
+    return () => scope.unregister(handler);
 }

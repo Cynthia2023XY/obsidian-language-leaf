@@ -166,7 +166,8 @@ function handleDOM(
               />
             </svg>`;
           }
-          $star.innerHTML = stars;
+          // 星级 SVG 仅由固定模板与数值生成，通过隔离文档创建节点。
+          $star.replaceChildren(...Array.from(new DOMParser().parseFromString(stars, 'text/html').body.childNodes));
         }
       }
 

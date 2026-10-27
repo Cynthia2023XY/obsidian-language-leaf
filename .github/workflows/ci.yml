@@ -19,5 +19,5 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run test:run -- --pool=forks --poolOptions.forks.singleFork
+      - run: npm run test:run -- --pool=forks --maxWorkers=1 --no-file-parallelism
       - run: npm run build

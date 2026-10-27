@@ -19,6 +19,10 @@ jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,8 +36,11 @@ jobs:
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import assert from 'node:assert/strict';
+          /** 读取待发布的版本元数据 */
           const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
+          /** 插件身份和版本以 manifest 为准 */
           const manifest = read('manifest.json');
+          /** 本次人工触发的目标版本 */
           const version = process.env.RELEASE_VERSION;
           assert.match(version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
           assert.equal(manifest.id, 'language-leaf');
@@ -44,8 +51,15 @@ jobs:
           assert.equal(read('versions.json')[version], manifest.minAppVersion);
           JS
       - run: npm ci
-      - run: npm run test:run -- --pool=forks --poolOptions.forks.singleFork
+      - run: npm run test:run -- --pool=forks --maxWorkers=1 --no-file-parallelism
       - run: npm run build
+      - name: Attest plugin release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
       - name: Create release and upload plugin files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,4 +67,4 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           gh release create "$RELEASE_VERSION" main.js manifest.json styles.css \
-            --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --generate-notes
+            --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --notes-file "docs/releases/$RELEASE_VERSION.md"

@@ -17,8 +17,27 @@
     display: inline-block;
     vertical-align: middle;
     margin: 0 3px;
-    background-color: #d54b21;
-    clip-path: polygon(0 30%, 30% 30%, 89% 0, 89% 100%, 31% 69%, 0 69%);
+    position: relative;
+    color: var(--text-accent);
+}
+/* 扬声器轮廓使用基础边框绘制，兼容宿主 Chromium 的完整支持范围。 */
+.speaker::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 3px;
+    height: 5px;
+    background-color: currentColor;
+}
+.speaker::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 0;
+    border-top: 6.5px solid transparent;
+    border-bottom: 6.5px solid transparent;
+    border-right: 6px solid currentColor;
 }
 
 /* Dictionary Icons */
