@@ -1,0 +1,39 @@
+README.md
+  s_8768effc74544c::t_f2acf14f56e578 20,22,24,26,28
+README.zh-CN.md
+  s_8768effc74544c::t_4bdcf98a2c37ba 1-46
+docs/releases/0.2.10.md
+  s_8768effc74544c::t_932a8c860a3f5f 1-7
+manifest.json
+  s_8768effc74544c::t_772d9f420c89d4 4,6
+package-lock.json
+  s_8768effc74544c::t_dd30b4c5189088 3,9
+package.json
+  s_8768effc74544c::t_77195a74e7b618 3
+src/dictionary/cambridge/engine.ts
+  s_8768effc74544c::t_1648b403afec85 1,20,23,29-32
+src/lang/helper.ts
+  s_8768effc74544c::t_d28b19843bd8f2 1,6,14-16,19
+src/stalin.css
+  s_8768effc74544c::t_2b2e5057c1fbbc 20-40
+styles.css
+  s_8768effc74544c::t_e5dcdee9fa0685 17-36
+versions.json
+  s_8768effc74544c::t_02bf2fb052532f 4-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "262dbaf5fae6aada5563acff225671a6dd8e5b81",
+  "prompts": {},
+  "sessions": {
+    "s_8768effc74544c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17bd7-df0a-7412-a900-b698369eab3c",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
