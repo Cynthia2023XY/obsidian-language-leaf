@@ -1,0 +1,36 @@
+README.zh-CN.md
+  s_30d518f7d2b72e::t_e1e232bc6f9b80 27,31
+  s_30d518f7d2b72e::t_e7bfd6624abb37 28
+src/lingualeaf/review/review-test.ts
+  s_30d518f7d2b72e::t_e7bfd6624abb37 30-40
+  s_30d518f7d2b72e::t_22f605e2250199 26,28
+  s_30d518f7d2b72e::t_a30ececba6a600 29
+src/lingualeaf/review/engine.ts
+  s_30d518f7d2b72e::t_22f605e2250199 26
+docs/releases/0.3.3.md
+  s_30d518f7d2b72e::t_dd40e0921216bd 1-5
+manifest.json
+  s_30d518f7d2b72e::t_4d667a1e73be3a 4
+package-lock.json
+  s_30d518f7d2b72e::t_308b6a3047e014 3,9
+package.json
+  s_30d518f7d2b72e::t_599f68053a3828 3
+versions.json
+  s_30d518f7d2b72e::t_8dcb014e1a6305 9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "39297d55269af2cd094e6bea4a7b573ce80f6e02",
+  "prompts": {},
+  "sessions": {
+    "s_30d518f7d2b72e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18672-532f-78f3-9260-38b130d81757",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
