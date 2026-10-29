@@ -1,6 +1,6 @@
 {
     "name": "language-leaf",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "description": "Language Leaf 原生 Markdown 语言学习与闪卡复习",
     "main": "main.js",
     "scripts": {

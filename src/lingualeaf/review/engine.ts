@@ -23,7 +23,7 @@ export function validateState(value: ReviewState): void {
 }
 export function prepare(id: string, before: ReviewState, now: Date, retention: number): Prepared {
     validateState(before);
-    const algorithm = fsrs({ request_retention: retention, enable_fuzz: false, learning_steps: ["1m", "10m"], relearning_steps: ["10m"] });
+    const algorithm = fsrs({ request_retention: retention, enable_fuzz: false, learning_steps: ["10m"], relearning_steps: ["10m"] });
     const results = algorithm.repeat(hydrate(before.card), now);
     const choices: Record<number, SavedCard> = {};
     for (const grade of GRADES) choices[grade.rating] = serialize(results[grade.rating as Grade].card);

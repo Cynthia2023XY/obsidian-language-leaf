@@ -23,9 +23,21 @@ describe("FSRS 适配与方向键", () => {
     it("四档预览与固定版本库计算一致", () => {
         const state: ReviewState = { revision: 0, suspended: false, card: serialize(createEmptyCard(now)) };
         const prepared = prepare("x", state, now, .9);
-        const expected = fsrs({ request_retention: .9, enable_fuzz: false, learning_steps: ["1m", "10m"], relearning_steps: ["10m"] }).repeat(hydrate(state.card), now);
+        const expected = fsrs({ request_retention: .9, enable_fuzz: false, learning_steps: ["10m"], relearning_steps: ["10m"] }).repeat(hydrate(state.card), now);
         for (const grade of GRADES) expect(prepared.choices[grade.rating]).toEqual(serialize(expected[grade.rating].card));
-        expect(interval(prepared.choices[1], now)).toBe("1 分钟");
+        expect(GRADES.map(grade => interval(prepared.choices[grade.rating], now))).toEqual(["10 分钟", "15 分钟", "2 天", "8 天"]);
+    });
+    it("旧学习步骤中的卡片保留原到期时间并能继续评分", () => {
+        // 模拟旧版在新卡首次选择记得后留下的学习中状态。
+        const oldAlgorithm = fsrs({ request_retention: .9, enable_fuzz: false, learning_steps: ["1m", "10m"], relearning_steps: ["10m"] });
+        // 原排程不因新的步骤配置而被预览过程改写。
+        const state: ReviewState = { revision: 1, suspended: false, card: serialize(oldAlgorithm.repeat(createEmptyCard(now), now)[3].card) };
+        // 已有卡片到期后仍可按新版配置计算下一次复习。
+        const original = JSON.stringify(state);
+        const prepared = prepare("x", state, new Date(state.card.due), .9);
+        expect(JSON.stringify(state)).toBe(original);
+        expect(prepared.choices[3].state).toBe(2);
+        expect(Date.parse(prepared.choices[3].due)).toBeGreaterThan(Date.parse(state.card.due));
     });
     it("未揭晓时方向键不能评分，空格只负责揭晓", () => {
         expect(reviewKey(new KeyboardEvent("keydown", { key: "ArrowLeft" }), false)).toBeUndefined();
