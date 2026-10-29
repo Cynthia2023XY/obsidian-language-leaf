@@ -1,0 +1,46 @@
+src/lingualeaf/host.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 193-200
+src/lingualeaf/core-test.ts
+  s_54d14cc42f9089::t_25dd6ce88b4311 61-62,64-68
+  s_54d14cc42f9089::t_ff5dcab218ea5f 63
+src/lingualeaf/review/reveal-motion-test.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 20,22,27,33
+src/dictionary/helpers.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 210,241-242,268
+src/dictionary/deepl/engine.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 30-32,38
+src/lingualeaf/article.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 157-159
+src/lingualeaf/review/review.css
+  s_54d14cc42f9089::t_3c153158ab3aa8 8
+src/lingualeaf/review/reveal-motion.ts
+  s_54d14cc42f9089::t_3c153158ab3aa8 10,15
+docs/releases/0.3.2.md
+  s_54d14cc42f9089::t_f71b76785ddb29 1-11
+manifest.json
+  s_54d14cc42f9089::t_d369e4df1c50c8 4
+package-lock.json
+  s_54d14cc42f9089::t_00c12c406a62d5 3,9
+package.json
+  s_54d14cc42f9089::t_a5dab9431bf66a 3
+styles.css
+  s_54d14cc42f9089::t_3089f6c1ef7559 905-907
+versions.json
+  s_54d14cc42f9089::t_9dae55fb0cb50d 8-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "ea3bc1eb35392116d5e713dff2a3da4ea871b3ea",
+  "prompts": {},
+  "sessions": {
+    "s_54d14cc42f9089": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1865d-1142-7653-83ee-b72d93d75da3",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
