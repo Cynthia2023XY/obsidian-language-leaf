@@ -27,8 +27,9 @@ export async function search(text: string, lang: string = ""): Promise<string | 
     };
 
     try {
-        let res = (await requestUrl(data)).json;
-        if (res.code !== 200) throw new Error("Deeplx api source error.");
+        // 第三方响应先校验结构，避免把不确定类型作为译文返回。
+        const res: unknown = (await requestUrl(data)).json;
+        if (!res || typeof res !== "object" || !("code" in res) || res.code !== 200 || !("data" in res) || typeof res.data !== "string") throw new Error("Deeplx api source error.");
 
         return res.data;
     } catch (err) {

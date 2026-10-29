@@ -190,9 +190,14 @@ export class LeafHost {
         if (blocks.length > 1) throw new Error("发现多个 ll-outline 大纲，请保留唯一一个");
         if (!blocks.length) return "";
         // 宿主负责 YAML，领域只接收文本快照。
-        const outline = parseYaml(blocks[0].body);
-        if (outline?.schema !== 1 || !Array.isArray(outline.items) || !outline.items.every((item: any) => typeof item.text === "string")) throw new Error("ll-outline 大纲格式错误");
-        return outline.items.map((item: any) => item.text).join("；");
+        const outline: unknown = parseYaml(blocks[0].body);
+        if (!outline || typeof outline !== "object" || !("schema" in outline) || outline.schema !== 1 || !("items" in outline) || !Array.isArray(outline.items)) throw new Error("ll-outline 大纲格式错误");
+        // 逐项校验大纲文本，拒绝损坏或未知结构。
+        const items: unknown[] = outline.items;
+        return items.map(item => {
+            if (!item || typeof item !== "object" || !("text" in item) || typeof item.text !== "string") throw new Error("ll-outline 大纲格式错误");
+            return item.text;
+        }).join("；");
     }
     /** 从当前文件取得学习语言，不依据 UI 语言猜测 */
     language(file: TFile): string {

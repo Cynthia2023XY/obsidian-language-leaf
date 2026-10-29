@@ -902,6 +902,9 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
   padding: 32px 0 22px;
   flex: 1;
 }
+.ll-review-body.ll-review-animating {
+  overflow-y: hidden;
+}
 .ll-review-eyebrow {
   color: var(--text-muted);
   font-size: 12px;

@@ -58,6 +58,14 @@ describe("普通 Markdown 上下文与双语对齐", () => {
 });
 
 describe("原生闪卡与 SR 进度保留", () => {
+    it("补充例句有效时保留内容，字段损坏时拒绝读取", () => {
+        // 使用两条例句覆盖额外例句的 JSON 解码和类型检查。
+        const sentences = [{ text: "In its place was a slip of paper.", trans: "取而代之的是纸条。", origin: "文章" }, { text: "Second.", trans: "第二句。", origin: "文章" }];
+        // 仅修改可见的补充例句，不改动隐藏元数据。
+        const source = renderCard(card({ sentences }), "?");
+        expect(parseCards(source, "?")[0].card.sentences).toEqual(sentences);
+        expect(() => parseCards(source.replace('"trans"&#58;"第二句。"', '"trans"&#58;42'), "?")).toThrow("补充例句结构损坏");
+    });
     it("生成可直接识别的多行问答且答案内没有空行", () => {
         // 大纲和中文是答案正文的一部分，不需要插件特殊渲染。
         const result = renderCard(card(), "?");

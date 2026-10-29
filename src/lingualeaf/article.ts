@@ -154,9 +154,9 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
             const primary = first || card.sentence || card.translation || field("出处", "例句出处") ? [{ text: restore(first?.text, card.sentence), trans: restore(first?.trans, card.translation), origin: restore(first?.origin, field("出处", "例句出处")) }] : [];
             card.sentences = [...primary, ...lines.slice(split + 2).filter(line => line.startsWith("**补充例句**：")).map(line => {
             // 补充例句以单行 JSON 保存，避免 SR 将空行识别为卡片边界。
-            const entry = JSON.parse(decodeCardLine(line.slice("**补充例句**：".length)));
-            if (!entry || ![entry.text, entry.trans, entry.origin].every(value => typeof value === "string")) throw new Error("补充例句结构损坏");
-            return entry;
+            const entry: unknown = JSON.parse(decodeCardLine(line.slice("**补充例句**：".length)));
+            if (!entry || typeof entry !== "object" || !("text" in entry) || typeof entry.text !== "string" || !("trans" in entry) || typeof entry.trans !== "string" || !("origin" in entry) || typeof entry.origin !== "string") throw new Error("补充例句结构损坏");
+            return { text: entry.text, trans: entry.trans, origin: entry.origin };
         })];
         }
         if (card.noteEntries && decodeCardLine(cardLine(card.noteEntries.join("；"))) !== card.notes) card.noteEntries = card.notes ? [card.notes] : [];

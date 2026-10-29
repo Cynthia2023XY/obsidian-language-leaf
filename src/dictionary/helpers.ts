@@ -207,7 +207,7 @@ export function getHTML(
     let container = document.createElement('div');
     container.appendChild(node);
     const fragment = sanitizeHTMLToDom(container.outerHTML);
-    const content = fragment.firstChild ? (fragment.firstChild as any)[mode] : '';
+    const content = fragment.firstElementChild ? fragment.firstElementChild[mode] : '';
 
     return transform ? transform(content) : content;
 }
@@ -238,7 +238,8 @@ export function getOuterHTML(
     );
 }
 
-export function handleNoResult<T = any>(): Promise<T> {
+/** 未找到词典结果时返回统一错误，避免将未知结果传播给调用方 */
+export function handleNoResult(): Promise<never> {
     return Promise.reject(new Error('NO_RESULT'));
 }
 
