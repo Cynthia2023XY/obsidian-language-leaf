@@ -43,6 +43,7 @@ export class ReviewModal extends Modal {
     onOpen(): void {
         this.modalEl.addClass("ll-review-modal");
         if (this.layout === "context") this.modalEl.addClass("ll-review-context");
+        this.titleEl.addClass("ll-review-header");
         this.titleEl.setText(this.layout === "context" ? "语叶 · 语境对照" : "语叶 · 词句复习");
         document.addEventListener("keydown", this.key, true);
         this.audioUnsubscribe = onPronunciation(state => {
@@ -95,13 +96,9 @@ export class ReviewModal extends Modal {
         if (this.timer) window.clearTimeout(this.timer);
         const blocked = new Set((await new MigrationService(this.plugin.lingualeaf.host).journals()).filter(journal => journal.phase !== "done").map(journal => journal.cardId));
         const cards = (await this.plugin.lingualeaf.host.scan()).filter(item => item.path && item.card.owner === "builtin" && !blocked.has(item.card.id) && (!this.source || item.path === this.source));
-        const rows = await Promise.all(cards.map(async item => ({ item, state: await this.store.state(item.card.id), events: await this.store.events(item.card.id) })));
+        const rows = await Promise.all(cards.map(async item => ({ item, state: await this.store.state(item.card.id) })));
         if (this.closed || token !== this.turn) return;
         const now = new Date(); const day = studyDay(now);
-        const active = rows.flatMap(row => {
-            const undone = new Set(row.events.filter(event => event.kind === "undo").map(event => event.undoes));
-            return row.events.filter(event => event.kind === "grade" && !undone.has(event.id));
-        });
         // Quota is vault-wide, including cards outside the current article.
         const allPaths = await this.plugin.lingualeaf.host.port.list(`${this.store.root}/review/events/`);
         const newToday = new Set<string>();
@@ -122,12 +119,13 @@ export class ReviewModal extends Modal {
         const selected = due[0] || (newToday.size < this.plugin.settings.review.newLimit ? fresh[0] : undefined);
         this.busy = false; this.revealed = false; this.pending = undefined;
         this.contentEl.empty(); this.current = selected?.item; this.prepared = undefined;
-        const completed = new Set(active.filter(event => event.session === this.session && event.after.card.state === 2).map(event => event.cardId));
-        const learning = rows.filter(row => [1, 3].includes(row.state.card.state) && !row.state.suspended).length;
-        this.contentEl.createDiv({ text: `已完成 ${completed.size} · 学习中 ${learning} · 待复习 ${due.length} · 今日新词 ${newToday.size}/${this.plugin.settings.review.newLimit}`, cls: "ll-review-progress" });
-        const tools = this.contentEl.createDiv({ cls: "ll-review-tools" });
-        if (this.last) this.button(tools, "撤销上次评分", () => { void this.undo(); });
-        this.button(tools, "查看已暂停", () => this.showSuspended(rows));
+        // 剩余数量包含当前卡片，并只计入今日新词额度内可开始的卡片。
+        const availableNew = Math.min(fresh.length, Math.max(0, this.plugin.settings.review.newLimit - newToday.size));
+        // 本轮已复习按评分过的不同卡片统计，撤销的评分不计入。
+        const reviewed = new Set(allEvents.filter(event => event.kind === "grade" && event.session === this.session && !undone.has(event.id) && rows.some(row => row.item.card.id === event.cardId)).map(event => event.cardId));
+        // 进度与宿主标题同行，刷新时只替换进度而不重复追加。
+        this.titleEl.querySelector(".ll-review-progress")?.remove();
+        this.titleEl.createSpan({ text: `待复习 ${due.length + availableNew} · 本轮已复习 ${reviewed.size}`, cls: "ll-review-progress", attr: { "aria-live": "polite", title: "待复习包含当前卡片和今日额度内的新卡，不含已暂停、跳过或尚未到复习时间的卡片。本轮已复习按已评分的不同卡片计算，撤销后不计入。" } });
         if (!selected) {
             const next = eligible.filter(row => row.state.card.state !== 0).sort((a,b) => Date.parse(a.state.card.due) - Date.parse(b.state.card.due))[0];
             this.contentEl.createEl("h2", { text: next ? "休息一下，等待下次回忆" : "本轮复习完成" });
@@ -142,6 +140,9 @@ export class ReviewModal extends Modal {
                 }; tick();
             }
             this.button(this.contentEl, "重新检查", () => { this.skipped.clear(); void this.refresh().catch(error => this.fail(error)); });
+            // 完成或等待页面保留恢复入口，不打断正常的逐卡复习。
+            if (this.last) this.button(this.contentEl, "撤销上次评分", () => { void this.undo(); });
+            if (rows.some(row => row.state.suspended)) this.button(this.contentEl, "查看已暂停", () => this.showSuspended(rows));
             return;
         }
         this.prepared = prepare(selected.item.card.id, selected.state, now, this.plugin.settings.review.retention);

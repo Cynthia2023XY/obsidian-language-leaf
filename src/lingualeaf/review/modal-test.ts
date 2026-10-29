@@ -44,6 +44,27 @@ function fixture(layout: "focus" | "context" = "focus") {
 async function settle(): Promise<void> { await new Promise(resolve => setTimeout(resolve, 25)); }
 function button(modal: ReviewModal, text: string): HTMLButtonElement { return Array.from(modal.contentEl.querySelectorAll("button")).find(element => element.textContent?.includes(text))!; }
 describe("真实复习弹窗 DOM 行为", () => {
+    it("剩余数量包含当前新卡，并随评分和撤销更新", async () => {
+        // 新卡按今日额度计入剩余数量，当前卡也包含在内。
+        const setup = fixture(); setup.modal.open(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 1 · 本轮已复习 0");
+        button(setup.modal, "显示答案").click(); button(setup.modal, "简单").click(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 0 · 本轮已复习 1");
+        button(setup.modal, "撤销上次评分").click(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 1 · 本轮已复习 0"); setup.modal.close();
+    });
+    it("新词额度限制可学数量，跳过的卡片不再计入", async () => {
+        // 两张未学卡只允许先开始一张，跳过后仍可学习另一张。
+        const setup = fixture();
+        setup.cards.push({ ...setup.cards[0], card: { ...setup.cards[0].card, id: "card-second" } });
+        setup.plugin.settings.review.newLimit = 1;
+        setup.modal.open(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 1 · 本轮已复习 0");
+        button(setup.modal, "本轮跳过").click(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 1 · 本轮已复习 0");
+        button(setup.modal, "显示答案").click(); button(setup.modal, "简单").click(); await settle();
+        expect(setup.modal.titleEl.textContent).toContain("待复习 0 · 本轮已复习 1"); setup.modal.close();
+    });
     it("先回忆后揭晓，四档文案正确，方向键评分并可撤销", async () => {
         const setup = fixture(); setup.modal.open(); await settle();
         expect(setup.modal.contentEl.textContent).not.toContain("在门槛处");
@@ -82,7 +103,7 @@ describe("真实复习弹窗 DOM 行为", () => {
         expect((await setup.store.state("card-test")).suspended).toBe(false);
         button(setup.modal, "显示答案").click(); button(setup.modal, "简单").click(); await settle(); setup.modal.close();
         const reopened = new ReviewModal(setup.plugin); reopened.open(); await settle();
-        expect(reopened.contentEl.textContent).toContain("今日新词 1/10"); expect(reopened.contentEl.textContent).toContain("撤销上次评分"); reopened.close();
+        expect(reopened.titleEl.textContent).toContain("本轮已复习 1"); expect(reopened.contentEl.textContent).toContain("撤销上次评分"); reopened.close();
     });
     it("来源被修改时阻止使用旧题面评分", async () => {
         const setup = fixture(); setup.modal.open(); await settle(); button(setup.modal, "显示答案").click();
@@ -96,6 +117,9 @@ describe("复习样式", () => {
     it("语境对照先显示原句，揭晓后显示释义和译文", async () => {
         const setup = fixture("context"); setup.modal.open(); await settle();
         expect(setup.modal.modalEl.classList.contains("ll-review-context")).toBe(true);
+        expect(setup.modal.titleEl.querySelector(".ll-review-progress")?.textContent).toContain("待复习 1");
+        expect(setup.modal.contentEl.textContent).not.toContain("撤销上次评分");
+        expect(setup.modal.contentEl.textContent).not.toContain("查看已暂停");
         const original = setup.modal.contentEl.querySelector(".ll-review-original")!;
         expect(original.textContent).toContain("A traveler paused.");
         const sourceLink = original.querySelector<HTMLButtonElement>(".ll-review-source-link")!;

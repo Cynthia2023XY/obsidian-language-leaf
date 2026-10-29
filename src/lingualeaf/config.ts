@@ -29,7 +29,7 @@ export function readSettings(value: unknown): LeafPluginSettings {
     for (const [index, id] of ["youdao", "cambridge", "jukuu", "hjdict", "deepl"].entries()) {
         dictionaries[id] = { enable: typeof data.dictionaries?.[id]?.enable === "boolean" ? data.dictionaries[id].enable : true, priority: index + 1 };
     }
-    return { review: { layout: data.review?.layout === "context" ? "context" : "focus", engine: data.review?.engine === "builtin" ? "builtin" : "spaced-repetition", newLimit: Number.isInteger(data.review?.newLimit) && data.review.newLimit >= 0 && data.review.newLimit <= 100 ? data.review.newLimit : 10, retention: typeof data.review?.retention === "number" && data.review.retention >= .7 && data.review.retention <= .97 ? data.review.retention : .9 }, learning: { language: ["en", "fr"].includes(learning.language) ? learning.language : "en",
+    return { review: { layout: data.review?.layout === "focus" ? "focus" : "context", engine: data.review?.engine === "spaced-repetition" ? "spaced-repetition" : "builtin", newLimit: Number.isInteger(data.review?.newLimit) ? Math.max(10, Math.min(200, data.review!.newLimit)) : 100, retention: typeof data.review?.retention === "number" && data.review.retention >= .7 && data.review.retention <= .97 ? data.review.retention : .9 }, learning: { language: ["en", "fr"].includes(learning.language) ? learning.language : "en",
         autoQuerySelection: learning.autoQuerySelection === true,
         modifier: ["shiftKey", "ctrlKey", "altKey", "metaKey"].includes(learning.modifier) ? learning.modifier : "shiftKey",
         deck: typeof learning.deck === "string" && /^#[\p{L}\p{N}_/-]+$/u.test(learning.deck) ? learning.deck : "#flashcards",
