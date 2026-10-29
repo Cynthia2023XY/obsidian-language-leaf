@@ -1,0 +1,46 @@
+src/lingualeaf/review/modal-test.ts
+  s_54d14cc42f9089::t_53027469350397 50,52,54,62,64,66,106,120-122
+  s_54d14cc42f9089::t_5126e80f2ff6e5 47-49,51,53,55-61,63,65,67
+src/lingualeaf/config.ts
+  s_54d14cc42f9089::t_833a634110ab0d 32
+src/lingualeaf/review/review.css
+  s_54d14cc42f9089::t_5dfab01d54febe 2-4,7,23,27,59
+src/lingualeaf/config-test.ts
+  s_54d14cc42f9089::t_833a634110ab0d 5-8,11-12,15-20
+  s_54d14cc42f9089::t_afc7efe98738d0 21
+src/lingualeaf/review/modal.ts
+  s_54d14cc42f9089::t_06eedd6e4c859c 122-123
+  s_54d14cc42f9089::t_036bb2d649a386 99
+  s_54d14cc42f9089::t_5c76a116d89a4e 124-125
+  s_54d14cc42f9089::t_5dfab01d54febe 46,126-128,143-145
+src/settings.ts
+  s_54d14cc42f9089::t_833a634110ab0d 92
+docs/releases/0.3.1.md
+  s_54d14cc42f9089::t_75e39344cd85c7 1-12
+manifest.json
+  s_54d14cc42f9089::t_52618b1a67bac8 4
+package-lock.json
+  s_54d14cc42f9089::t_a8f84a791cee2b 3,9
+package.json
+  s_54d14cc42f9089::t_c15bf38ef6bcea 3
+styles.css
+  s_54d14cc42f9089::t_bc5cd977e9c5a6 863-872,878,883,898-899,902,982-984,987,1004
+versions.json
+  s_54d14cc42f9089::t_4c869eff2b0217 7-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "bcdc547786e30453a42fe4b9237c23dda4389bec",
+  "prompts": {},
+  "sessions": {
+    "s_54d14cc42f9089": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1865d-1142-7653-83ee-b72d93d75da3",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
