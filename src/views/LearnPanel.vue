@@ -46,7 +46,7 @@ import { search } from "@dict/youdao/engine";
 import store from "@/store";
 import PanelIcon from "../component/PanelIcon.vue";
 import { createQuickSave } from "../lingualeaf/quick-save";
-import { decodeTextEntities, translationText } from "../lingualeaf/translation";
+import { decodeTextEntities, translationText, translateContext } from "../lingualeaf/translation";
 import { usePanelTheme } from "../lingualeaf/panel-theme";
 
 /** 当前新词面板所属插件 */
@@ -121,12 +121,16 @@ async function fill(request?: PanelCapture): Promise<void> {
     captureCount.value = request?.captureCount || 0;
     if (!request || !plugin.settings.use_machine_trans || !request.card.language.startsWith("en") || !model.value.sentences[0]?.text || model.value.sentences[0].trans) return;
     try {
-        // 原文缺少译文且用户允许机器翻译时，沿用有道的段落翻译能力。
-        const response = await search(decodeTextEntities(model.value.sentences[0].text));
-        if (sequence !== lookupSequence || !request.valid() || model.value.sentences[0]?.trans) return;
+        // 各段分别翻译，避免服务端将对话上下文合并成一行。
+        const sourceText = model.value.sentences[0].text;
+        const translated = await translateContext(decodeTextEntities(sourceText), async paragraph => {
+            const response = await search(paragraph);
+            const html = (response?.result as any)?.translation;
+            return typeof html === "string" ? translationText(html) : "";
+        });
+        if (sequence !== lookupSequence || !request.valid() || model.value.sentences[0]?.trans || model.value.sentences[0]?.text !== sourceText) return;
         // 第三方结果只填充纯文本，不把 HTML 插入笔记。
-        const html = (response?.result as any)?.translation;
-        if (typeof html === "string") model.value.sentences[0].trans = translationText(html);
+        model.value.sentences[0].trans = translated;
     } catch { /* 网络失败不阻止用户手工收录 */ }
 }
 /** 所有提交都保存到指定文章的 SR 闪卡，并保留当前 SR 调度注释 */

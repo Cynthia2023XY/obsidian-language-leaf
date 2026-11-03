@@ -835,6 +835,10 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 #langr-search #hjdict h2 {
   border-color: var(--background-modifier-border);
 }
+#langr-data .ll-word-example p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* src/lingualeaf/card-layout.css */
 .ll-card-source {

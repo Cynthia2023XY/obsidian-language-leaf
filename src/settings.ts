@@ -33,7 +33,7 @@ export class SettingTab extends PluginSettingTab {
     }
     /** 新版宿主提供的是单行容器；内部使用独立块级容器承载整页设置。 */
     getSettingDefinitions(): SettingDefinitionItem[] {
-        return [{ name: "Language Leaf", aliases: ["学习语言", "划词修饰键", "划选后自动查词", "查词自动发音", "发音口音", "查词词典", "词句复习", "卡组标签"], render: setting => {
+        return [{ name: "Language Leaf", aliases: ["学习语言", "划词修饰键", "划选后自动查词", "短句单词数阈值", "前后扩展句数", "查词自动发音", "发音口音", "查词词典", "词句复习", "卡组标签"], render: setting => {
             setting.settingEl.empty();
             setting.settingEl.addClass("ll-settings-host");
             this.renderSettings(setting.settingEl.createDiv({ cls: "ll-settings-content" }));
@@ -52,6 +52,14 @@ export class SettingTab extends PluginSettingTab {
         new Setting(container).setName("学习语言").addDropdown(control => control.addOptions({ en: "英语", fr: "法语" }).setValue(draft.learning.language).onChange(value => { this.updateSettings(settings => { settings.learning.language = value; }); }));
         new Setting(container).setName("划词修饰键").setDesc("在学习模式下按住该键划选词句；Mac 可选择 Alt / Option。").addDropdown(control => control.addOptions({ shiftKey: "Shift", altKey: "Alt / Option", ctrlKey: "Ctrl", metaKey: "Command" }).setValue(draft.learning.modifier).onChange(value => { this.updateSettings(settings => { settings.learning.modifier = value as typeof draft.learning.modifier; }); }));
         new Setting(container).setName("划选后自动查词").setDesc("仅在学习模式中生效。开启后，普通拖选或三指划选稳定后自动打开查词和新词面板；关闭时保留查词按钮及修饰键划词。").addToggle(control => control.setValue(draft.learning.autoQuerySelection).onChange(value => { this.updateSettings(settings => { settings.learning.autoQuerySelection = value; }); }));
+        new Setting(container).setName("短句单词数阈值").setDesc("目标句少于此单词数时补充上下文，默认 15；设为 0 关闭扩展。仅影响之后收录的例句。").addText(control => {
+            control.inputEl.type = "number"; control.inputEl.min = "0"; control.inputEl.step = "1";
+            control.setValue(String(draft.learning.shortSentenceThreshold)).onChange(value => { this.updateSettings(settings => { settings.learning.shortSentenceThreshold = value.trim() ? Number(value) : NaN; }); });
+        });
+        new Setting(container).setName("前后扩展句数").setDesc("目标句触发扩展时，前后各纳入多少句，默认 1；设为 0 不扩展。保留原段落与分段，不跨标题、代码或普通引用。").addText(control => {
+            control.inputEl.type = "number"; control.inputEl.min = "0"; control.inputEl.step = "1";
+            control.setValue(String(draft.learning.contextSentenceCount)).onChange(value => { this.updateSettings(settings => { settings.learning.contextSentenceCount = value.trim() ? Number(value) : NaN; }); });
+        });
         new Setting(container).setName("查词自动发音").addToggle(control => control.setValue(draft.auto_pron).onChange(value => { this.updateSettings(settings => { settings.auto_pron = value; }); }));
         new Setting(container).setName("复习卡片自动发音").addToggle(control => control.setValue(draft.review_auto_pron).onChange(value => { this.updateSettings(settings => { settings.review_auto_pron = value; }); }));
         new Setting(container).setName("发音口音").addDropdown(control => control.addOptions({ "0": "美式", "1": "英式" }).setValue(draft.review_prons).onChange(value => { this.updateSettings(settings => { settings.review_prons = value as "0" | "1"; }); }));

@@ -99,3 +99,6 @@
 #langr-search .ll-dict-tabs button[aria-pressed="true"] { color: var(--text-accent); border-bottom: 2px solid var(--interactive-accent); }
 #langr-search .speaker { background-color: var(--text-accent); }
 #langr-search #hjdict h2 { border-color: var(--background-modifier-border); }
+
+/* 词库展开的例句与译文沿用收录时的分段。 */
+#langr-data .ll-word-example p { white-space: pre-wrap; overflow-wrap: anywhere; }

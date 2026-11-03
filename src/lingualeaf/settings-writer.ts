@@ -26,6 +26,7 @@ export class SettingsWriter {
             if (!/^#[\p{L}\p{N}_/-]+$/u.test(next.learning.deck)) throw new Error("请输入以 # 开头的有效卡组标签；当前配置未更改。");
             if (!next.learning.separator.trim() || /[\r\n<>]/.test(next.learning.separator)) throw new Error("请输入有效的单行分隔符；当前配置未更改。");
             if (next.learning.separator !== previous.learning.separator && await this.hasCards()) throw new Error("已有闪卡，不能直接更改分隔符；当前配置未更改。");
+            if (![next.learning.shortSentenceThreshold, next.learning.contextSentenceCount].every(value => Number.isSafeInteger(value) && value >= 0)) throw new Error("短句阈值和扩展句数必须是非负整数；当前配置未更改。");
             await this.save(next);
         });
         this.pending = operation.catch(() => {});

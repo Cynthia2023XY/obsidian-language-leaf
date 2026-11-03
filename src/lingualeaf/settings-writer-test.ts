@@ -39,6 +39,16 @@ describe("编辑后自动保存设置", () => {
         expect(current.learning.separator).toBe("?");
         expect(current.learning.deck).toBe("#words/en");
     });
+    it("上下文配置拒绝非法输入，合法值可持久化且不覆盖其他配置", async () => {
+        let current = readSettings({});
+        const writer = new SettingsWriter(() => current, async next => { current = readSettings(JSON.parse(JSON.stringify(next))); }, async () => false);
+        for (const value of [-1, 1.5, NaN]) {
+            await expect(writer.update(next => { next.learning.contextSentenceCount = value; })).rejects.toThrow("非负整数");
+            expect(current.learning.contextSentenceCount).toBe(1);
+        }
+        await writer.update(next => { next.learning.shortSentenceThreshold = 20; next.learning.contextSentenceCount = 2; });
+        expect(current.learning).toMatchObject({ shortSentenceThreshold: 20, contextSentenceCount: 2, language: "en" });
+    });
     it("写盘失败后保持原配置且下一次修改可以恢复", async () => {
         // 模拟磁盘暂时不可写，而不是只测试内存赋值。
         let current = readSettings({});

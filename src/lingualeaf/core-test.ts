@@ -30,9 +30,67 @@ describe("普通 Markdown 上下文与双语对齐", () => {
     it("原文紧随翻译且文件头有空行时按独立段落定位", () => {
         // 与指定双语文章相同的排版：frontmatter 后无空行，翻译前也无空行。
         const source = "\n---\ndate created: today\n---\nThere is **wealth** in a career.\n> [!translation]-\n> 职业中的财富。\n\nAnother career.\n> [!translation]-\n> 另一份职业。";
-        expect(extractContext(source, "wealth", "", "There is wealth in a career.")).toMatchObject({ sentence: "There is wealth in a career.", translation: "职业中的财富。" });
-        expect(extractContext(source.replace(/\n/g, "\r\n"), "Another", "").translation).toBe("另一份职业。");
+        expect(extractContext(source, "wealth", "", "There is wealth in a career.")).toMatchObject({ sentence: "There is wealth in a career.\n\nAnother career.", translation: "职业中的财富。\n\n另一份职业。" });
+        expect(extractContext(source.replace(/\n/g, "\r\n"), "Another", "").translation).toBe("职业中的财富。\n\n另一份职业。");
         expect(() => extractContext(source, "职业中的财富", "")).toThrow("定位");
+    });
+    it("多句对话保留完整引号，并优先拼接对应的已有译文", () => {
+        const previous = '“No. I want to finish that piece in the morning. Haven\'t decided about the afternoon.”';
+        const current = '“I have no classes in the afternoon.”';
+        const next = "Tav lifted his head to look at him.";
+        const source = `${previous}\n\n> [!translation]-\n> “没有。上午想把那首曲子写完，下午还没想好。”\n\n${current}\n\n> [!translation]-\n> “我下午没有课。”\n\n${next}\n\n> [!translation]-\n> 塔夫抬头看他。`;
+        const result = extractContext(source, "classes", "");
+        expect(result.sentence).toBe([previous, current, next].join("\n\n"));
+        expect(result.translation).toBe('“没有。上午想把那首曲子写完，下午还没想好。”\n\n“我下午没有课。”\n\n塔夫抬头看他。');
+        const parsed = parseCards(renderCard(card({ ...result, text: "classes" }), "?"), "?")[0].card;
+        expect(parsed.sentence).toBe(result.sentence);
+        expect(parsed.translation).toBe(result.translation);
+    });
+    it("短句跨段补充前后各一句，保留定位锚点", () => {
+        const source = "First background. Previous context.\n\nA rare leaf.\n\nNext context. Final background.";
+        expect(extractContext(source, "leaf", "主题")).toEqual({ sentence: "Previous context.\n\nA rare leaf.\n\nNext context.", translation: "", outline: "主题", anchor: "A rare leaf." });
+    });
+    it("前向扩展也保留完整对话，英文直引号同样受保护", () => {
+        for (const [open, close] of [["“", "”"], ['"', '"']]) {
+            const quote = `${open}No. We should leave. Not today.${close}`;
+            expect(extractContext(`A leaf.\n\n${quote}`, "leaf", "").sentence).toBe(`A leaf.\n\n${quote}`);
+            expect(extractContext(`${quote}\n\nA leaf.`, "leaf", "").sentence).toBe(`${quote}\n\nA leaf.`);
+        }
+    });
+    it("只有截取的部分段落有译文时不错误拼接整段中文", () => {
+        const source = "First. Last.\n\n> [!translation]-\n> 第一。最后。\n\nA leaf.\n\n> [!translation]-\n> 叶子。";
+        expect(extractContext(source, "leaf", "")).toMatchObject({ sentence: "Last.\n\nA leaf.", translation: "" });
+    });
+    it("达到配置阈值不扩展，同段上下文不重复", () => {
+        const sentence = "This rare leaf has a very unusual and beautiful shape.";
+        expect(extractContext(`Before.\n\n${sentence}\n\nAfter.`, "leaf", "", undefined, { shortSentenceThreshold: 10 }).sentence).toBe(sentence);
+        expect(extractContext("Before. A rare leaf. After.", "leaf", "").sentence).toBe("Before. A rare leaf. After.");
+    });
+    it("不跨标题、代码或普通引用补充上下文", () => {
+        for (const barrier of ["## Section", "```text\nHidden context.\n```", "> Quoted context."]) {
+            expect(extractContext(`Before.\n\n${barrier}\n\nA rare leaf.\n\n${barrier}\n\nAfter.`, "leaf", "").sentence).toBe("A rare leaf.");
+        }
+    });
+    it("配置前后两句时跨多个段落补足，已有同段句子计入配额", () => {
+        const source = "One.\n\nTwo.\n\nA leaf.\n\nThree.\n\nFour.\n\nFive.";
+        expect(extractContext(source, "leaf", "", undefined, { contextSentenceCount: 2 }).sentence).toBe("One.\n\nTwo.\n\nA leaf.\n\nThree.\n\nFour.");
+        expect(extractContext("Zero. One.\n\nTwo. A leaf. Three.\n\nFour. Five.", "leaf", "", undefined, { contextSentenceCount: 2 }).sentence).toBe("One.\n\nTwo. A leaf. Three.\n\nFour.");
+    });
+    it("零阈值或零句数关闭扩展，默认十五词严格按少于判断", () => {
+        const source = "Before.\n\nA leaf.\n\nAfter.";
+        for (const options of [{ shortSentenceThreshold: 0 }, { contextSentenceCount: 0 }]) {
+            expect(extractContext(source, "leaf", "", undefined, options).sentence).toBe("A leaf.");
+        }
+        const sentence = "This leaf has a very unusual shape and a beautiful bright green color today here.";
+        expect(extractContext(`Before.\n\n${sentence}\n\nAfter.`, "leaf", "").sentence).toBe(sentence);
+        expect(extractContext(`Before.\n\n${sentence}\n\nAfter.`, "leaf", "", undefined, { shortSentenceThreshold: 16 }).sentence).toBe(`Before.\n\n${sentence}\n\nAfter.`);
+    });
+    it("多句扩展仍在标题处停止，可越过相邻译文并保留分段", () => {
+        const source = "Do not include.\n\n## Section\n\nOne.\n\n> [!translation]-\n> 一。\n\nA leaf.\n\n> [!translation]-\n> 叶子。\n\nTwo.\n\n## End\n\nDo not include.";
+        expect(extractContext(source, "leaf", "", undefined, { contextSentenceCount: 3 }).sentence).toBe("One.\n\nA leaf.\n\nTwo.");
+    });
+    it("重复词无法确定目标句时保留原段落", () => {
+        expect(extractContext("Outside.\n\nA leaf. Another leaf.\n\nAfter.", "leaf", "").sentence).toBe("A leaf. Another leaf.");
     });
     it("数值实体按浏览器显示的撇号和引号定位", () => {
         expect(extractContext("I&#x27;d build &quot;wealth&quot;.", "I'd", "", 'I\'d build "wealth".').sentence).toBe('I\'d build "wealth".');
@@ -44,7 +102,7 @@ describe("普通 Markdown 上下文与双语对齐", () => {
         // 两个段落都含同词，但上下文不同。
         const source = "A blue bookmark.\n\nAnother blue bookmark.";
         expect(() => extractContext(source, "blue", "")).toThrow("重复");
-        expect(extractContext(source, "blue", "", "Another blue bookmark.").sentence).toBe("Another blue bookmark.");
+        expect(extractContext(source, "blue", "", "Another blue bookmark.").sentence).toBe("A blue bookmark.\n\nAnother blue bookmark.");
     });
     it("代码围栏内的正文示例不参与定位，包括更长外层围栏", () => {
         // 四反引号中的三反引号只是示例文本。
@@ -65,6 +123,20 @@ describe("原生闪卡与 SR 进度保留", () => {
         const source = renderCard(card({ sentences }), "?");
         expect(parseCards(source, "?")[0].card.sentences).toEqual(sentences);
         expect(() => parseCards(source.replace('"trans"&#58;"第二句。"', '"trans"&#58;42'), "?")).toThrow("补充例句结构损坏");
+    });
+    it("对话上下文提取、保存和重新解析均保留分段", () => {
+        const sentence = '“I have no classes in the afternoon.”\n\nTav lifted his head to look at him.\n\n“I know.”';
+        const translation = "我下午没有课。\n\n塔夫抬起头看着他。\n\n我知道。";
+        expect(extractContext(sentence, "lifted", "").sentence).toBe(sentence);
+        const value = card({ sentence, translation, sentences: [{ text: sentence, trans: translation, origin: "" }] });
+        const rendered = renderCard(value, "?");
+        expect(rendered).toContain('afternoon.”<br><br>Tav');
+        expect(rendered).toContain('我下午没有课。<br><br>塔夫');
+        const parsed = parseCards(rendered, "?")[0].card;
+        expect(parsed.sentence).toBe(sentence);
+        expect(parsed.translation).toBe(translation);
+        expect(parsed.sentences![0].text).toBe(sentence);
+        expect(parseCards(renderCard(card({ sentence: "literal <br> text" }), "?"), "?")[0].card.sentence).toBe("literal <br> text");
     });
     it("生成可直接识别的多行问答且答案内没有空行", () => {
         // 大纲和中文是答案正文的一部分，不需要插件特殊渲染。

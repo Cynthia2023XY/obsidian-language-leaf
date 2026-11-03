@@ -1,7 +1,7 @@
 import { MarkdownView, Notice, Plugin, TFile, normalizePath, parseYaml, Vault } from "obsidian";
 import type { FilePort, CaptureOperation } from "./storage";
 import { LearningStore } from "./storage";
-import { extractContext, fencedBlocks, parseCards, upsertCard, validateCard } from "./article";
+import { CONTEXT_DEFAULTS, extractContext, fencedBlocks, parseCards, upsertCard, validateCard } from "./article";
 import { expressionKey, newId } from "./domain";
 import { captureCounts } from "./capture-count";
 import type { LeafCard, ArticleContext } from "./domain";
@@ -20,10 +20,13 @@ export interface LeafSettings {
     separator: string;
     /** 持久数据目录 */
     dataFolder: string;
+    /** 短句触发阈值与前后各扩展的句数 */
+    shortSentenceThreshold: number;
+    contextSentenceCount: number;
 
 }
 /** 原生文章学习的默认配置，既有安装保持 SR 格式 */
-export const LEAF_DEFAULTS: LeafSettings = { language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" };
+export const LEAF_DEFAULTS: LeafSettings = { ...CONTEXT_DEFAULTS, language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" };
 /** 文章索引中的来源与卡片 */
 export interface IndexedCard {
     /** 当前来源路径，可随重命名更新 */
@@ -210,7 +213,7 @@ export class LeafHost {
     async context(file: TFile, selected: string, paragraph?: string): Promise<ArticleContext> {
         // 查询不写元数据或修改文章。
         const source = await this.plugin.app.vault.read(file);
-        return extractContext(source, selected, this.outline(source), paragraph);
+        return extractContext(source, selected, this.outline(source), paragraph, this.settings);
     }
     /** 收录词句，先持久化意图，再改文章，完成后更新索引 */
     async save(file: TFile, card: LeafCard, captureId?: string): Promise<void> {

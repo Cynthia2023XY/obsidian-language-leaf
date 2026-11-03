@@ -25,7 +25,7 @@ describe("简化配置", () => {
     it("默认只提供原生学习、词典和 SR 配置", () => {
         // 当前数据目录不复用旧数据库或独立调度事件。
         const config = readSettings(null);
-        expect(config.learning).toEqual({ language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData" });
+        expect(config.learning).toEqual({ language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData", shortSentenceThreshold: 15, contextSentenceCount: 1 });
         expect(Object.keys(config).sort()).toEqual(["auto_pron", "dictionaries", "learning", "review", "review_auto_pron", "review_prons", "speech", "use_machine_trans"]);
     });
     it("不接入旧插件数据库、服务端、阅读器和内置调度选项", () => {
@@ -61,5 +61,22 @@ describe("系统声音设置", () => {
         const settings = readSettings({ speech: { enabled: false, voice: "com.apple.voice.samantha" } });
         expect(readSettings(JSON.parse(JSON.stringify(settings))).speech).toEqual(settings.speech);
         expect(readSettings({ speech: { voice: 5 } }).speech.voice).toBe("");
+    });
+});
+
+describe("短句上下文设置", () => {
+    it("旧安装默认十五词和各一句，保存回读保留自定义值和零值", () => {
+        expect(readSettings({}).learning.shortSentenceThreshold).toBe(15);
+        for (const [threshold, count] of [[24, 3], [0, 0]]) {
+            const config = readSettings({ learning: { shortSentenceThreshold: threshold, contextSentenceCount: count } });
+            const restored = readSettings(JSON.parse(JSON.stringify(config)));
+            expect(restored.learning.shortSentenceThreshold).toBe(threshold);
+            expect(restored.learning.contextSentenceCount).toBe(count);
+        }
+    });
+    it("损坏字段回退默认值", () => {
+        for (const value of [-1, 1.5, "2", null, Infinity]) {
+            expect(readSettings({ learning: { shortSentenceThreshold: value, contextSentenceCount: value } }).learning).toMatchObject({ shortSentenceThreshold: 15, contextSentenceCount: 1 });
+        }
     });
 });
