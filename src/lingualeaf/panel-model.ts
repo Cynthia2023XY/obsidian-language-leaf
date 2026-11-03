@@ -1,4 +1,4 @@
-import type { LeafCard } from "./domain";
+import type { ArticleContext, LeafCard } from "./domain";
 
 /** 一条可编辑例句及文章出处 */
 export interface Sentence {
@@ -31,6 +31,19 @@ export function cardToForm(card: LeafCard, origin: string): ExpressionInfo {
         tags: [...(card.tags || [])],
         notes: [...(card.noteEntries || (card.notes ? [card.notes] : []))],
         sentences: (card.sentences || (card.sentence ? [{ text: card.sentence, trans: card.translation, origin }] : [])).map(entry => ({ ...entry })) };
+}
+
+/** 再次划词收录时优先展示当前语境，同时保留已有例句和手工管理字段。 */
+export function withCaptureContext(card: LeafCard, context: ArticleContext, origin: string): LeafCard {
+    // 历史例句转换为独立副本，面板编辑不能提前修改索引中的旧卡。
+    const previous = cardToForm(card, origin).sentences;
+    const key = (text: string): string => text.replace(/\s+/g, " ").trim();
+    const matched = previous.find(entry => key(entry.text) === key(context.sentence));
+    const primary = { text: context.sentence, trans: context.translation || matched?.trans || "", origin: matched?.origin || origin };
+    const sentences = context.sentence.trim()
+        ? [primary, ...previous.filter(entry => key(entry.text) !== key(context.sentence))]
+        : previous;
+    return { ...card, ...context, sentence: sentences[0]?.text || "", translation: sentences[0]?.trans || "", sentences };
 }
 
 /** 原表单提交为随文卡片，保留语言、来源身份及复习归属 */

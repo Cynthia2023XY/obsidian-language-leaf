@@ -8,7 +8,7 @@ import type { ExpressionInfo } from "./panel-model";
 import { DATA_PANEL_VIEW } from "../views/DataPanelView";
 import { SEARCH_PANEL_VIEW } from "../views/SearchPanelView";
 import { LEARN_PANEL_VIEW } from "../views/LearnPanelView";
-import { cardToForm, formToCard } from "./panel-model";
+import { cardToForm, formToCard, withCaptureContext } from "./panel-model";
 import { resetShiftSelection, extendShiftSelection } from "./selection";
 import type { TextCaret } from "./selection";
 import { watchReadingMode } from "./reading-mode";
@@ -178,7 +178,7 @@ export class LinguaLeafRuntime {
             this.host.prune();
             return this.alive && this.queries.get(view) === sequence && this.host.sessions.get(view)?.token === session.token && view.file === session.file;
         };
-        // 同文再次查询已收录词时载入原卡，避免把手写内容重置成空表单。
+        // 同文再次查询复用原卡身份和手工字段，本次上下文在打开面板时合并。
         const matches = (await this.host.scan()).filter(item => expressionKey(item.card.language, item.card.text) === expressionKey(this.host.language(session.file), selected));
         // 同文编辑复用卡片身份，跨文只复用共享词条的管理字段。
         const existing = matches.find(item => item.path === session.file.path);
@@ -187,7 +187,7 @@ export class LinguaLeafRuntime {
     /** 使用原查词和新词 Vue 面板呈现查询，不创建独立收录弹窗 */
     async openCapture(file: TFile, selected: string, context: ArticleContext, valid: () => boolean, existing?: LeafCard, seed?: LeafCard, showSearch = true, isEdit = false): Promise<void> {
         // 在激活面板前冻结来源，右侧表单始终保存到该文件。
-        const card: LeafCard = existing || { id: newId(), expressionId: seed?.expressionId || newId(),
+        const card: LeafCard = existing ? (isEdit ? existing : withCaptureContext(existing, context, file.basename)) : { id: newId(), expressionId: seed?.expressionId || newId(),
             text: selected, language: this.host.language(file), meaning: seed?.meaning || "", kind: /\s/.test(selected) ? "phrase" : "word",
             ...context, notes: "", tags: seed?.tags || [], owner: this.plugin.settings.review.engine };
         // 按规范化表达统计，单纯查词并不增加历史计数。
