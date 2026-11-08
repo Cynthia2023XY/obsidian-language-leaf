@@ -86,6 +86,11 @@ function dialogueRange(text: string, start: number, end: number): { start: numbe
     return { start, end };
 }
 
+/** Markdown 分割线是章节边界，不参与选区定位或短句上下文扩展。 */
+function isThematicBreak(block: string): boolean {
+    return /^ {0,3}(?:(?:-[\t ]*){3,}|(?:\*[\t ]*){3,}|(?:_[\t ]*){3,})$/.test(block.trimEnd());
+}
+
 /** 短句上下文配置；零阈值或零句数均关闭跨段扩展。 */
 export interface ContextOptions {
     shortSentenceThreshold: number;
@@ -110,7 +115,7 @@ export function extractContext(source: string, selected: string, outline: string
     const paragraphs = body.split(/\r?\n\s*\r?\n|\r?\n(?=>\s*\[!translation\][+-]?(?:[^\r\n]*)$)/m);
     // 同文重复时必须通过渲染段落上下文缩小候选。
     const candidates = paragraphs.map((paragraph, index) => ({ paragraph, index }))
-        .filter(item => !/^\s*(>|#{1,6} |[-*] )/.test(item.paragraph) && plainText(item.paragraph).includes(plainText(selected)))
+        .filter(item => !isThematicBreak(item.paragraph) && !/^\s*(>|#{1,6} |[-*] )/.test(item.paragraph) && plainText(item.paragraph).includes(plainText(selected)))
         .filter(item => !paragraphHint || plainText(item.paragraph) === plainText(paragraphHint));
     if (candidates.length !== 1) throw new Error(candidates.length ? "选区来源重复，请缩小选区或通过所在段落查询" : "无法唯一定位正文，请在普通段落中重新选择");
     // 当前段落后只能跟一个明确的 translation callout。
@@ -143,15 +148,17 @@ export function extractContext(source: string, selected: string, outline: string
             // 仅越过双语译文，标题、代码和其他引用均终止扩展。
             if (isTranslation(paragraphs[index])) index += direction;
             const block = paragraphs[index] || "";
-            if (!block.trim() || /^\s*(>|#{1,6} |[-*+] |\d+[.)] |<|\|)/.test(block)) break;
+            if (!block.trim() || isThematicBreak(block) || /^\s*(>|#{1,6} |[-*+] |\d+[.)] |<|\|)/.test(block)) break;
             const text = plainText(block);
             const adjacent = sentences(text);
             if (!adjacent.length) break;
             const take = Math.min(needed, adjacent.length);
-            const range = dialogueRange(text, direction < 0 ? adjacent[adjacent.length - take].index : 0,
+            const translated = translationAt(index);
+            // 已有中文按整段对应；扩至完整英文段落，避免截句后丢弃现成译文。
+            const range = translated ? { start: 0, end: text.length } : dialogueRange(text, direction < 0 ? adjacent[adjacent.length - take].index : 0,
                 direction < 0 || take === adjacent.length ? text.length : adjacent[take].index);
             const complete = range.start === 0 && range.end === text.length;
-            const chunk = { text: complete ? contextText(block) : text.slice(range.start, range.end).trim(), translation: complete ? translationAt(index) : "" };
+            const chunk = { text: complete ? contextText(block) : text.slice(range.start, range.end).trim(), translation: complete ? translated : "" };
             if (direction < 0) chunks.unshift(chunk); else chunks.push(chunk);
             // 完整引号可能包含多句，已纳入的句子全部计入配额。
             needed -= adjacent.filter(part => part.index >= range.start && part.index < range.end).length;

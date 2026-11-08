@@ -57,9 +57,32 @@ describe("普通 Markdown 上下文与双语对齐", () => {
             expect(extractContext(`${quote}\n\nA leaf.`, "leaf", "").sentence).toBe(`${quote}\n\nA leaf.`);
         }
     });
-    it("只有截取的部分段落有译文时不错误拼接整段中文", () => {
+    it("相邻段落有译文时保留整段英文，避免截句后丢失译文", () => {
         const source = "First. Last.\n\n> [!translation]-\n> 第一。最后。\n\nA leaf.\n\n> [!translation]-\n> 叶子。";
-        expect(extractContext(source, "leaf", "")).toMatchObject({ sentence: "Last.\n\nA leaf.", translation: "" });
+        expect(extractContext(source, "leaf", "")).toMatchObject({ sentence: "First. Last.\n\nA leaf.", translation: "第一。最后。\n\n叶子。" });
+    });
+    it("前后扩展多句双语段落时保持原文译文逐段对应", () => {
+        const before = "He remembered the complaint. Tav had been slicing an apple. All he'd asked was, “Can't they find someone to help you?”";
+        const current = "Gale had said he had already put in a request.";
+        const after = "A smile slowly spread across Tav's face. He looked up.";
+        const source = `${before}\n\n> [!translation]-\n> 他想起抱怨，切着苹果问能否找人帮忙。\n\n${current}\n\n> [!translation]-\n> 盖尔说，已经申请了。\n\n${after}\n\n> [!translation]-\n> 塔夫慢慢笑起来，抬起头。`;
+        expect(extractContext(source, "request", "")).toMatchObject({
+            sentence: [before, current, after].join("\n\n"),
+            translation: "他想起抱怨，切着苹果问能否找人帮忙。\n\n盖尔说，已经申请了。\n\n塔夫慢慢笑起来，抬起头。",
+            anchor: current,
+        });
+    });
+    it("分割线附近只补充同一节正文，保留全部已有译文", () => {
+        const first = '“Hand it over.”';
+        const second = "Gale immediately turned and fetched a stack of papers bristling with bookmarks.";
+        const third = "Looking down at it, Tav finally understood the full extent of his delight.";
+        for (const rule of ["---", "***", "___", "- - -", " * * * ", "  _ _ _"]) {
+            for (const newline of ["\n", "\r\n"]) {
+                const source = `Outside before.\n\n${rule}\n\n${first}\n\n> [!translation]-\n> “拿来吧。”\n\n${second}\n\n> [!translation]-\n> 盖尔取来文章。\n\n${third}\n\n> [!translation]-\n> 塔夫明白了。\n\n${rule}\n\nOutside after.`.replace(/\n/g, newline);
+                expect(extractContext(source, "Hand", "")).toMatchObject({ sentence: [first, second].join("\n\n"), translation: "“拿来吧。”\n\n盖尔取来文章。" });
+                expect(extractContext(source, "delight", "")).toMatchObject({ sentence: [second, third].join("\n\n"), translation: "盖尔取来文章。\n\n塔夫明白了。" });
+            }
+        }
     });
     it("达到配置阈值不扩展，同段上下文不重复", () => {
         const sentence = "This rare leaf has a very unusual and beautiful shape.";
