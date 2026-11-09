@@ -1,0 +1,77 @@
+src/lingualeaf/core-test.ts
+  s_ac5bcd3c8a6aad::t_3079cb4d563cf2 269-294
+src/lingualeaf/note-markdown.ts
+  s_ac5bcd3c8a6aad::t_f62cdd4348381d 4-21,36-37
+  s_ac5bcd3c8a6aad::t_49dc487558c2ba 34-35,38
+  s_ac5bcd3c8a6aad::t_0f1bf3bf25503e 1-3,22-33,39-45
+versions.json
+  s_ac5bcd3c8a6aad::t_df62e5237d0809 13-14
+src/lingualeaf/review/list-schedule.ts
+  s_ac5bcd3c8a6aad::t_7066d3d4743f53 1-16
+src/lingualeaf/note-markdown-test.ts
+  s_ac5bcd3c8a6aad::t_e402fe82ad5b38 1-3,5-28,47-74
+  s_ac5bcd3c8a6aad::t_f62cdd4348381d 4,29-46
+src/component/NoteMarkdown.vue
+  s_ac5bcd3c8a6aad::t_0f1bf3bf25503e 1-21
+README.zh-CN.md
+  s_ac5bcd3c8a6aad::t_e23398667bc1fc 5,41
+manifest.json
+  s_ac5bcd3c8a6aad::t_df62e5237d0809 4,6
+src/lingualeaf/article.ts
+  s_ac5bcd3c8a6aad::t_81d556d8e58453 202,246,253-255,272
+src/views/DataPanel.vue
+  s_ac5bcd3c8a6aad::t_0f1bf3bf25503e 27,161
+  s_ac5bcd3c8a6aad::t_7066d3d4743f53 4,11,28-31,49-50,94-116,121,123-125,169,176-179
+src/lingualeaf/review/list-schedule-test.ts
+  s_ac5bcd3c8a6aad::t_2addffd96d1157 1-37
+src/main.css
+  s_ac5bcd3c8a6aad::t_0f1bf3bf25503e 7-8,14-15
+  s_ac5bcd3c8a6aad::t_f328df6634a472 10-11
+  s_ac5bcd3c8a6aad::t_f62cdd4348381d 9,12-13
+package.json
+  s_ac5bcd3c8a6aad::t_df62e5237d0809 3
+src/lingualeaf/review/modal.ts
+  s_ac5bcd3c8a6aad::t_adf694656b70a0 51,137-139,150-152,154-155
+  s_ac5bcd3c8a6aad::t_0f1bf3bf25503e 10,14-15,63,87,215-216
+  s_ac5bcd3c8a6aad::t_e402fe82ad5b38 280
+  s_ac5bcd3c8a6aad::t_df62e5237d0809 140
+styles.css
+  s_ac5bcd3c8a6aad::t_73f06b7d5d3f51 916,1186-1191,1193-1194,1196,1199,1202,1205-1214
+  s_ac5bcd3c8a6aad::t_91d182202c8df5 880,884-915,1201
+  s_ac5bcd3c8a6aad::t_e370ff1a736933 1192,1197
+  s_ac5bcd3c8a6aad::t_5b8b2f85b40ab4 1195,1198,1200,1203-1204
+docs/releases/0.5.0.md
+  s_ac5bcd3c8a6aad::t_df62e5237d0809 1-12
+src/lingualeaf/review/review.css
+  s_ac5bcd3c8a6aad::t_adf694656b70a0 3-9
+src/lingualeaf/review/modal-test.ts
+  s_ac5bcd3c8a6aad::t_49dc487558c2ba 5-6
+README.md
+  s_ac5bcd3c8a6aad::t_fd622adfd74df9 5,13
+package-lock.json
+  s_ac5bcd3c8a6aad::t_52e45b73fd7616 3,9
+src/lingualeaf/config-test.ts
+  s_ac5bcd3c8a6aad::t_bda5935f197c4a 10,12
+src/lingualeaf/config.ts
+  s_ac5bcd3c8a6aad::t_2c46d7a6d8428b 8-9,34
+src/lingualeaf/runtime.ts
+  s_ac5bcd3c8a6aad::t_78af3fb99494ba 192
+src/settings.ts
+  s_ac5bcd3c8a6aad::t_cace650f70790c 10,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "11e137eaff4fdf3ea501a82efd9aac0a0e47445f",
+  "prompts": {},
+  "sessions": {
+    "s_ac5bcd3c8a6aad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be3c-902e-7390-a1f7-c6909063be7e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
