@@ -266,6 +266,32 @@ describe("多语言词条身份", () => {
 
 });
 
+describe("笔记换行往返与旧卡兼容", () => {
+    it("保留笔记空行并区分用户输入的字面 HTML", () => {
+        // 多行笔记在磁盘使用显式换行，字面标签仍作为安全文本。
+        const notes = "第一行\n\n第二行 <br> 与 <script>";
+        // 结构化表单与复习读取保持一致，反复保存不压平换行。
+        const value = card({ owner: "builtin", notes, noteEntries: [notes] });
+        // 同时验证空行没有截断卡片协议。
+        const rendered = renderCard(value, "?");
+        expect(rendered).toContain("**笔记**：第一行<br><br>第二行 &lt;br&gt; 与 &lt;script&gt;");
+        expect(parseCards(rendered, "?")[0].card.notes).toBe(notes);
+        expect(parseCards(rendered, "?")[0].card.noteEntries).toEqual([notes]);
+        expect(parseCards(renderCard(parseCards(rendered, "?")[0].card, "?"), "?")[0].card.notes).toBe(notes);
+    });
+    it("旧正文未改时恢复快照换行，手改后不使用旧快照覆盖", () => {
+        // 模拟旧版本把空行压成空格，但元数据仍有原始笔记。
+        const value = card({ owner: "builtin", notes: "第一行\n\n第二行", noteEntries: ["第一行\n\n第二行"] });
+        // 仅修改可见笔记，模拟旧版落盘结构。
+        const legacy = renderCard(value, "?").replace("**笔记**：第一行<br><br>第二行", "**笔记**：第一行  第二行");
+        expect(parseCards(legacy, "?")[0].card.notes).toBe(value.notes);
+        // 当前正文的人工修改必须优先于历史快照。
+        const edited = legacy.replace("**笔记**：第一行  第二行", "**笔记**：修改后<br>新内容");
+        expect(parseCards(edited, "?")[0].card.notes).toBe("修改后\n新内容");
+        expect(parseCards(edited, "?")[0].card.noteEntries).toEqual(["修改后\n新内容"]);
+    });
+});
+
 describe("可恢复收词持久化", () => {
     it("崩溃后待收词操作仍可枚举，完成标记幂等", async () => {
         // 待处理意图和卡片都随文件持久化。

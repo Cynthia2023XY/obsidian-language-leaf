@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ReviewModal } from "./modal";
 import { ReviewStore } from "./engine";
 vi.mock("obsidian", () => ({
+    Component: class { load() {} unload() {} },
+    MarkdownRenderer: { render: vi.fn(async (_app: unknown, text: string, element: HTMLElement) => { element.textContent = text; }) },
     Modal: class {
         app: any; modalEl = document.createElement("div"); contentEl = document.createElement("div"); titleEl = document.createElement("h1");
         constructor(app: any) { this.app = app; this.modalEl.append(this.titleEl, this.contentEl); }

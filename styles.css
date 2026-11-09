@@ -877,9 +877,42 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 .ll-review-modal .modal-content {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: min(520px, max(0px, calc(90vh - 100px)));
   overflow: auto;
   padding: 0 0 8px;
+}
+.ll-review-state {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 16px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.ll-review-state h2 {
+  margin: 0;
+  line-height: 1.4;
+}
+.ll-review-state p {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+.ll-review-loading {
+  color: var(--text-muted);
+}
+.ll-review-state-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 0 8px;
+  border-top: 1px solid var(--background-modifier-border);
 }
 .ll-review-progress {
   color: var(--text-muted);
@@ -1150,6 +1183,35 @@ body.is-mobile .callout[data-callout=translation] .callout-title {
 }
 
 /* src/main.css */
+.ll-note-markdown {
+  color: var(--text-normal);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ll-note-markdown.markdown-rendered p {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  margin-block: 0;
+}
+.ll-note-markdown.markdown-rendered p + p {
+  margin-block-start: 1.65em;
+}
+#langr-data .ll-word-details .ll-note-markdown p {
+  margin: 0;
+}
+#langr-data .ll-word-details .ll-note-markdown p + p {
+  margin-block-start: 1.65em;
+}
+.ll-note-markdown pre {
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.ll-note-markdown pre code {
+  white-space: inherit;
+  overflow-wrap: normal;
+}
 .lingualeaf-reading .view-header-title::after {
   content: " \b7  Language Leaf";
   color: var(--text-accent);

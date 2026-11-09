@@ -7,9 +7,12 @@ import { onPronunciation, stopPronunciation } from "../../utils/helpers";
 import { MigrationService } from "./migration";
 import { GRADES, interval, prepare, priority, ReviewStore, reviewKey, studyDay } from "./engine";
 import type { Prepared, ReviewEvent, ReviewState } from "./engine";
+import { renderNoteMarkdown } from "../note-markdown";
 
 /** The host owns the close button; answer content scrolls independently of grading. */
 export class ReviewModal extends Modal {
+    /** 换卡、编辑或关闭时清理笔记 Markdown 渲染资源 */
+    private disposeNote?: () => void;
     private store: ReviewStore;
     private audioUnsubscribe?: () => void;
     private cancelRevealMotion?: () => void;
@@ -45,6 +48,7 @@ export class ReviewModal extends Modal {
         if (this.layout === "context") this.modalEl.addClass("ll-review-context");
         this.titleEl.addClass("ll-review-header");
         this.titleEl.setText(this.layout === "context" ? "语叶 · 语境对照" : "语叶 · 词句复习");
+        this.contentEl.createDiv({ text: "正在准备复习卡片…", cls: "ll-review-state ll-review-loading", attr: { role: "status" } });
         document.addEventListener("keydown", this.key, true);
         this.audioUnsubscribe = onPronunciation(state => {
             if (state.owner !== "review" || this.closed) return;
@@ -56,6 +60,7 @@ export class ReviewModal extends Modal {
         void this.refresh().catch(error => this.fail(error));
     }
     onClose(): void {
+        this.disposeNote?.();
         this.cancelRevealMotion?.();
         this.closed = true; this.turn++;
         this.audioUnsubscribe?.(); stopPronunciation("review");
@@ -79,6 +84,7 @@ export class ReviewModal extends Modal {
         button.addEventListener("click", () => { button.blur(); if (!this.busy) run(); }); return button;
     }
     private async refresh(): Promise<void> {
+        this.disposeNote?.(); this.disposeNote = undefined;
         this.cancelRevealMotion?.();
         stopPronunciation("review");
         const token = ++this.turn; this.busy = true;
@@ -128,8 +134,10 @@ export class ReviewModal extends Modal {
         this.titleEl.createSpan({ text: `待复习 ${due.length + availableNew} · 本轮已复习 ${reviewed.size}`, cls: "ll-review-progress", attr: { "aria-live": "polite", title: "待复习包含当前卡片和今日额度内的新卡，不含已暂停、跳过或尚未到复习时间的卡片。本轮已复习按已评分的不同卡片计算，撤销后不计入。" } });
         if (!selected) {
             const next = eligible.filter(row => row.state.card.state !== 0).sort((a,b) => Date.parse(a.state.card.due) - Date.parse(b.state.card.due))[0];
-            this.contentEl.createEl("h2", { text: next ? "休息一下，等待下次回忆" : "本轮复习完成" });
-            const message = this.contentEl.createEl("p", { text: !cards.length ? "还没有内置复习卡片。可在设置中选择内置复习，或通过迁移命令导入已有卡片。" : "可以关闭窗口，进度已保存。" });
+            // 等待和完成状态占据正文空间，避免弹窗在复习结束时收缩。
+            const state = this.contentEl.createDiv({ cls: "ll-review-state", attr: { role: "status" } });
+            state.createEl("h2", { text: next ? "休息一下，等待下次回忆" : "本轮复习完成" });
+            const message = state.createEl("p", { text: !cards.length ? "还没有内置复习卡片。收录词句后即可开始，已有 SR 卡片可通过迁移命令导入。" : "可以关闭窗口，进度已保存。" });
             if (next) {
                 const tick = (): void => {
                     if (this.closed || token !== this.turn) return;
@@ -139,10 +147,12 @@ export class ReviewModal extends Modal {
                     this.timer = window.setTimeout(tick, 1000);
                 }; tick();
             }
-            this.button(this.contentEl, "重新检查", () => { this.skipped.clear(); void this.refresh().catch(error => this.fail(error)); });
+            // 操作集中在底部并允许窄窗口自动换行。
+            const actions = this.contentEl.createDiv({ cls: "ll-review-state-actions" });
+            this.button(actions, "重新检查", () => { this.skipped.clear(); void this.refresh().catch(error => this.fail(error)); }, "mod-cta");
             // 完成或等待页面保留恢复入口，不打断正常的逐卡复习。
-            if (this.last) this.button(this.contentEl, "撤销上次评分", () => { void this.undo(); });
-            if (rows.some(row => row.state.suspended)) this.button(this.contentEl, "查看已暂停", () => this.showSuspended(rows));
+            if (this.last) this.button(actions, "撤销上次评分", () => { void this.undo(); });
+            if (rows.some(row => row.state.suspended)) this.button(actions, "查看已暂停", () => this.showSuspended(rows));
             return;
         }
         this.prepared = prepare(selected.item.card.id, selected.state, now, this.plugin.settings.review.retention);
@@ -202,7 +212,8 @@ export class ReviewModal extends Modal {
             const details = extras.createEl("details");
             details.open = label === "笔记";
             details.createEl("summary", { text: label });
-            details.createEl("p", { text });
+            if (label === "笔记") this.disposeNote = renderNoteMarkdown(this.app, text, details, this.current.path);
+            else details.createEl("p", { text });
         }
         for (const entry of (card.sentences || []).slice(1)) { const detail = extras.createEl("details"); detail.createEl("summary", { text: "补充例句" }); detail.createEl("p", { text: entry.text }); detail.createEl("p", { text: entry.trans }); }
         const footer = this.contentEl.querySelector<HTMLElement>(".ll-review-footer"); footer.empty(); footer.addClass("ll-review-grades");
@@ -266,6 +277,7 @@ export class ReviewModal extends Modal {
     }
     private edit(): void {
         if (!this.current || this.pending) return;
+        this.disposeNote?.(); this.disposeNote = undefined;
         const selected = this.current;
         this.cancelRevealMotion?.();
         stopPronunciation("review");

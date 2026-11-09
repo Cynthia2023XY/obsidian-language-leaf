@@ -2,7 +2,7 @@
 
 [中文使用与开发说明](README.zh-CN.md)
 
-Read native Markdown, look up words and sentences, and save vocabulary as flashcards in the same note. Review with the built-in FSRS engine or the separate Spaced Repetition plugin.
+Read native Markdown, look up words and sentences, and save vocabulary as flashcards in the same note. Review with the built-in FSRS engine.
 
 ## Installation and usage
 
@@ -10,7 +10,7 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 
 - Enable learning mode on a Markdown note. Hold Shift while selecting text, or configure Alt/Option. Three-finger selection can query when the modifier is released. Alternatively, enable automatic selection lookup or click the selection's lookup button.
 - Edit the new-word form and save with Command+Enter on macOS or Ctrl+Enter on Windows/Linux. The shortcut applies inside the new-word panel.
-- Choose the review engine for new cards in settings. Existing cards retain their engine unless explicitly migrated through the migration preview.
+- New cards always use the built-in FSRS engine. Legacy SR cards can be imported through the migration preview, which keeps backups.
 - Built-in FSRS review supports recall and context layouts, audio, daily new-card limits, undo, pause/resume, and source-note navigation. Space reveals the answer; arrow keys rate it after reveal.
 - Switching a note to editing exits learning mode.
 

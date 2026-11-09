@@ -1,9 +1,9 @@
 {
     "id": "language-leaf",
     "name": "Language Leaf",
-    "version": "0.4.2",
+    "version": "0.5.0",
     "minAppVersion": "1.14.4",
-    "description": "Read native Markdown, look up words and sentences, and save vocabulary as Spaced Repetition flashcards.",
+    "description": "Read native Markdown, collect vocabulary in context, and review with built-in FSRS flashcards.",
     "author": "Cynthia Ding",
     "authorUrl": "",
     "isDesktopOnly": true

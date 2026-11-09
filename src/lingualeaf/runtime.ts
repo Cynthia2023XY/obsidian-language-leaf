@@ -189,7 +189,7 @@ export class LinguaLeafRuntime {
         // 在激活面板前冻结来源，右侧表单始终保存到该文件。
         const card: LeafCard = existing ? (isEdit ? existing : withCaptureContext(existing, context, file.basename)) : { id: newId(), expressionId: seed?.expressionId || newId(),
             text: selected, language: this.host.language(file), meaning: seed?.meaning || "", kind: /\s/.test(selected) ? "phrase" : "word",
-            ...context, notes: "", tags: seed?.tags || [], owner: this.plugin.settings.review.engine };
+            ...context, notes: "", tags: seed?.tags || [], owner: "builtin" };
         // 按规范化表达统计，单纯查词并不增加历史计数。
         const indexed = (await this.host.scan()).find(item => expressionKey(item.card.language, item.card.text) === expressionKey(card.language, card.text));
         // 唯一请求身份隔离快速连续查询和旧表单提交。

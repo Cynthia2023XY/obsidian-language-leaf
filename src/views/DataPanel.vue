@@ -1,14 +1,14 @@
 <template>
     <div id="langr-data" class="ll-panel">
         <NConfigProvider :theme="theme" :theme-overrides="themeConfig">
-            <header class="ll-library-heading"><h2>单词列表 <span class="ll-muted ll-small">{{ data.length }}</span></h2><span class="ll-muted ll-small">收录于原文 · 使用 SR 复习</span></header>
+            <header class="ll-library-heading"><h2>单词列表 <span class="ll-muted ll-small">{{ data.length }}</span></h2><span class="ll-muted ll-small">收录于原文 · 按各卡片所属引擎复习</span></header>
             <div class="ll-library-filters">
                 <NInput size="small" v-model:value="searchText" aria-label="搜索词句" placeholder="搜索表达、释义或来源…" clearable />
                 <select v-model.number="minimumCount" aria-label="收录次数筛选"><option :value="0">全部收录次数</option><option :value="2">收录 2 次及以上</option><option :value="3">收录 3 次及以上</option><option :value="5">收录 5 次及以上</option></select>
                 <NSelect size="small" v-model:value="selectedTags" :options="tagOptions" multiple clearable placeholder="全部标签" aria-label="标签筛选" />
                 <select v-model="mode" aria-label="标签匹配方式"><option value="and">匹配全部标签</option><option value="or">匹配任一标签</option></select>
             </div>
-            <NDataTable size="small" :loading="loading" :data="filteredData" :columns="columns" :row-key="makeRowKey" :pagination="pagination" :bordered="false" :single-line="true" :scroll-x="760" />
+            <NDataTable size="small" :loading="loading" :data="filteredData" :columns="columns" :row-key="makeRowKey" :pagination="pagination" :bordered="false" :single-line="true" :scroll-x="980" />
             <p class="ll-muted ll-small" aria-live="polite">{{ filteredData.length ? `共 ${filteredData.length} 条词句` : '没有匹配的词句' }}</p>
         </NConfigProvider>
     </div>
@@ -24,6 +24,11 @@ import { action } from "../lingualeaf/ui";
 import { cardToForm } from "../lingualeaf/panel-model";
 import { usePanelTheme } from "../lingualeaf/panel-theme";
 import PanelIcon from "../component/PanelIcon.vue";
+import NoteMarkdown from "../component/NoteMarkdown.vue";
+import { ReviewStore } from "../lingualeaf/review/engine";
+import { listSchedule, externalSchedule } from "../lingualeaf/review/list-schedule";
+import { parseCards } from "../lingualeaf/article";
+import { MigrationService } from "../lingualeaf/review/migration";
 
 /** 每行保留独立的文章闪卡，跨文只共享累计次数 */
 interface Row {
@@ -41,6 +46,8 @@ interface Row {
     tags: string[];
     /** 来源最后修改日期，不冒充历史收录日期 */
     date: string;
+    /** 真实复习排期或阻止进入复习的状态 */
+    nextReview: string;
 }
 /** 当前词库标签页所属插件 */
 const plugin = getCurrentInstance().appContext.config.globalProperties.plugin as PluginType;
@@ -84,15 +91,38 @@ async function loadData(): Promise<void> {
     try {
         // 不从旧数据库或评分状态生成额外的词库数据。
         const cards = await plugin.lingualeaf.host.scan();
-        if (sequence !== loadSequence) return;
-        data.value = cards.map(item => {
+        // 内置排期以评分事件为准，迁移中卡片与复习窗口保持一致。
+        const store = new ReviewStore(plugin.lingualeaf.host.port, plugin.settings.learning.dataFolder);
+        // 同一文章只读取一次 SR 调度，避免逐词重复读文件。
+        const sources = new Map<string, Promise<ReturnType<typeof parseCards>>>();
+        // 未完成迁移的卡片不能误显示成可复习。
+        const blocked = new Set((await new MigrationService(plugin.lingualeaf.host).journals()).filter(journal => journal.phase !== "done").map(journal => journal.cardId));
+        // 每行独立读取排期，损坏记录仅影响对应卡片的显示。
+        const rows = await Promise.all(cards.map(async item => {
+            // 默认明确标识读失败，避免把损坏进度当作新词。
+            let nextReview = "排期读取失败";
+            try {
+                if (item.card.owner === "builtin") nextReview = blocked.has(item.card.id) ? "迁移未完成，暂不可复习" : listSchedule(await store.state(item.card.id));
+                else {
+                    if (!sources.has(item.path)) sources.set(item.path, plugin.lingualeaf.host.port.read(item.path).then(text => {
+                        if (text === null) throw new Error("来源文章不存在");
+                        return parseCards(text, plugin.settings.learning.separator);
+                    }));
+                    // 仅使用当前卡片的原文调度，跨文章同词不共享时间。
+                    const located = (await sources.get(item.path)).find(card => card.card.id === item.card.id);
+                    if (!located) throw new Error("来源卡片不存在");
+                    nextReview = externalSchedule(located.schedule);
+                }
+            } catch (error) { console.error("[单词列表] 读取复习排期失败", item.card.id, error); }
             // 当前文章内容是释义和例句的权威来源。
             const form = cardToForm(item.card, item.path);
             // 日期明确表示文件更新，不推测首次收录时间。
             const file = plugin.app.vault.getAbstractFileByPath(item.path);
-            return { key: item.card.id, native: item, expr: form.expression, captureCount: item.captureCount || 0, meaning: form.meaning, tags: form.tags,
+            return { key: item.card.id, native: item, expr: form.expression, captureCount: item.captureCount || 0, meaning: form.meaning, tags: form.tags, nextReview,
                 date: file instanceof TFile ? moment(file.stat.mtime).format("YYYY-MM-DD") : "" };
-        });
+        }));
+        if (sequence !== loadSequence) return;
+        data.value = rows;
         pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(filteredData.value.length / pagination.pageSize)));
     } catch (error) { new Notice(String(error)); }
     finally { if (sequence === loadSequence) loading.value = false; }
@@ -128,7 +158,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
         const form = cardToForm(row.native.card, row.native.path);
         return h("div", { class: "ll-word-details" }, [
             ...form.sentences.map(sentence => h("div", { class: "ll-word-example" }, [h("p", sentence.text), h("p", { class: "ll-muted" }, sentence.trans), h("p", { class: "ll-muted ll-small" }, sentence.origin)])),
-            ...form.notes.map(note => h("p", note)), row.native.card.outline ? h("p", `文章概览：${row.native.card.outline}`) : null,
+            ...form.notes.map(note => h(NoteMarkdown, { app: plugin.app, text: note, sourcePath: row.native.path })), row.native.card.outline ? h("p", `文章概览：${row.native.card.outline}`) : null,
         ]);
     } },
     { title: "表达 / 来源", key: "expr", minWidth: 210, sorter: "default", render: row => h("div", { class: "ll-expression-cell" }, [
@@ -136,14 +166,15 @@ const columns = computed<DataTableColumns<Row>>(() => [
         row.native.path ? h("a", { href: "#", class: "ll-source-link", title: row.native.path, onClick: (event: MouseEvent) => { event.preventDefault(); rowAction("source", row); } }, row.native.path.replace(/\.md$/i, "")) : h("span", { class: "ll-muted ll-small" }, "来源已删除"),
     ]) },
     { title: "含义", key: "meaning", minWidth: 150 },
+    { title: "下次复习时间", key: "nextReview", minWidth: 220 },
     { title: "收录次数", key: "captureCount", width: 108, defaultSortOrder: "descend", sorter: (left, right) => left.captureCount - right.captureCount, render: row => h("span", { class: "ll-count-badge" }, `${row.captureCount} 次`) },
     { title: "标签", key: "tags", minWidth: 100, render: row => h("div", { class: "ll-row-tags" }, row.tags.map(tag => h(NTag, { size: "small", bordered: false }, { default: () => tag }))) },
     { title: "更新日期", key: "date", width: 115, sorter: (left, right) => left.date.localeCompare(right.date), render: row => h("span", { class: "ll-muted ll-small ll-date" }, row.date || "—") },
     { title: "", key: "actions", width: 42, render: row => !row.native.path ? null : h(NDropdown, { trigger: "click", options: [{ label: "打开来源", key: "source" }, { label: "编辑", key: "edit" }, { label: "删除", key: "delete" }], onSelect: (key: string) => rowAction(key, row) },
         { default: () => h(NButton, { text: true, size: "small", class: "ll-row-menu", "aria-label": `${row.expr} 的操作` }, { default: () => h(PanelIcon, { name: "ellipsis" }) }) }) },
 ]);
-/** 只在 Markdown 来源变化后更新表格 */
-function onVaultChange(file: { extension?: string }): void { if (file.extension === "md") void loadData(); }
-onMounted(() => { void loadData(); window.addEventListener("obsidian-langr-refresh", loadData); plugin.app.vault.on("modify", onVaultChange); plugin.app.vault.on("delete", onVaultChange); plugin.app.vault.on("rename", onVaultChange); });
-onUnmounted(() => { ++loadSequence; window.removeEventListener("obsidian-langr-refresh", loadData); plugin.app.vault.off("modify", onVaultChange); plugin.app.vault.off("delete", onVaultChange); plugin.app.vault.off("rename", onVaultChange); });
+/** 原文与复习事件变化后刷新，评分和撤销无须重新打开列表 */
+function onVaultChange(file: { extension?: string; path?: string }): void { if (file.extension === "md" || (file.extension === "json" && file.path?.startsWith(`${plugin.settings.learning.dataFolder}/review/`))) void loadData(); }
+onMounted(() => { void loadData(); window.addEventListener("obsidian-langr-refresh", loadData); plugin.app.vault.on("create", onVaultChange); plugin.app.vault.on("modify", onVaultChange); plugin.app.vault.on("delete", onVaultChange); plugin.app.vault.on("rename", onVaultChange); });
+onUnmounted(() => { ++loadSequence; window.removeEventListener("obsidian-langr-refresh", loadData); plugin.app.vault.off("create", onVaultChange); plugin.app.vault.off("modify", onVaultChange); plugin.app.vault.off("delete", onVaultChange); plugin.app.vault.off("rename", onVaultChange); });
 </script>

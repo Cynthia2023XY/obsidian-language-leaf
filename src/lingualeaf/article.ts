@@ -199,7 +199,7 @@ export function renderCard(card: LeafCard, separator: string, schedule = ""): st
     // 用显式换行提供段间留白，物理空行仍保留给 SR 判断卡片边界。
     const answer = [cardLine(card.meaning), card.sentence && `**原句**：${contextLine(card.sentence)}`,
         card.translation && `**译文**：${contextLine(card.translation)}`,
-        card.outline && `**概览**：${cardLine(card.outline)}`, card.notes && `**笔记**：${cardLine(card.notes)}`,
+        card.outline && `**概览**：${cardLine(card.outline)}`, card.notes && `**笔记**：${contextLine(card.notes)}`,
         ...(card.sentences || []).slice(1).map(entry => `**补充例句**：${cardLine(JSON.stringify(entry))}`),
         card.sentences?.[0]?.origin && `<small class="ll-card-source">出处：${cardLine(card.sentences[0].origin)}</small>`]
         .filter(Boolean).join('\n<br class="ll-card-gap">\n');
@@ -243,14 +243,16 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
         // 连续字段行协议让手工改释义和笔记后仍可重新建立索引。
         const field = (...labels: string[]): string => {
             const label = labels.find(label => lines.slice(split + 2).some(line => line.startsWith(`**${label}**：`)));
-            return label ? lines.slice(split + 2).filter(line => line.startsWith(`**${label}**：`)).map(line => decodeCardLine((label === "原句" || label === "译文" || label === "本文译文（段落）") ? line.slice(label.length + 5).replace(/<br>/g, "\n") : line.slice(label.length + 5))).join("\n") : "";
+            return label ? lines.slice(split + 2).filter(line => line.startsWith(`**${label}**：`)).map(line => decodeCardLine((label === "原句" || label === "译文" || label === "本文译文（段落）" || label === "笔记") ? line.slice(label.length + 5).replace(/<br>/g, "\n") : line.slice(label.length + 5))).join("\n") : "";
         };
         card.sentence = field("原句");
         card.translation = field("译文", "本文译文（段落）");
         card.outline = field("概览", "文章概览（收录时）");
         // 未识别的旧格式行作为笔记保留，不能在第一次编辑时丢弃原文信息。
         const extra = lines.slice(split + 2).filter(line => line.trim() && !/^\*\*(原句|译文|本文译文（段落）|概览|文章概览（收录时）|笔记|补充例句|出处|例句出处)\*\*：/.test(line));
-        card.notes = [field("笔记"), extra.join("；")].filter(Boolean).join("；");
+        card.notes = [field("笔记"), extra.join("\n")].filter(Boolean).join("\n");
+        // 旧卡正文曾压平换行；内容一致时从快照恢复，手改正文仍优先。
+        if (!extra.length && decodeCardLine(cardLine(metadata.notes)) === card.notes) card.notes = metadata.notes;
         // 可见字段是权威；手改后同步第一条例句和笔记，避免隐藏快照覆盖正文。
         if (card.sentences) {
             // 正文仅合并换行以兼容 SR；未被手改的表单字段保留原来的多行结构。
@@ -267,7 +269,7 @@ export function parseCards(source: string, separator: string): LocatedCard[] {
             return { text: entry.text, trans: entry.trans, origin: entry.origin };
         })];
         }
-        if (card.noteEntries && decodeCardLine(cardLine(card.noteEntries.join("；"))) !== card.notes) card.noteEntries = card.notes ? [card.notes] : [];
+        if (card.noteEntries && card.noteEntries.join("；") !== card.notes && decodeCardLine(cardLine(card.noteEntries.join("；"))) !== card.notes) card.noteEntries = card.notes ? [card.notes] : [];
         cards.push({ card, from: match.index, to: match.index + match[0].length, schedule });
     }
     // 不完整区域也不能被当作“没有卡片”后再追加重复记录。

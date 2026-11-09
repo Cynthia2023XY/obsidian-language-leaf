@@ -1,6 +1,12 @@
 .ll-review-modal { width: min(780px, 94vw); max-height: 90vh; }
 .ll-review-modal .ll-review-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 20px; padding-right: 32px; font-size: 22px; font-weight: 700; line-height: 1.3; }
-.ll-review-modal .modal-content { display: flex; flex-direction: column; min-height: 0; overflow: auto; padding: 0 0 8px; }
+/* 从首次加载到休息状态统一预留高度，小窗口仍受可用视口约束。 */
+.ll-review-modal .modal-content { display: flex; flex-direction: column; min-height: min(520px, max(0px, calc(90vh - 100px))); overflow: auto; padding: 0 0 8px; }
+.ll-review-state { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; text-align: center; overflow-wrap: anywhere; }
+.ll-review-state h2 { margin: 0; line-height: 1.4; }
+.ll-review-state p { margin: 0; max-width: 48ch; color: var(--text-muted); line-height: 1.65; }
+.ll-review-loading { color: var(--text-muted); }
+.ll-review-state-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 18px 0 8px; border-top: 1px solid var(--background-modifier-border); }
 .ll-review-progress { color: var(--text-muted); font-size: 13px; font-weight: 500; }
 .ll-review-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .ll-review-tools button { font-size: 12px; box-shadow: none; background: transparent; color: var(--text-muted); }

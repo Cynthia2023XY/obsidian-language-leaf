@@ -7,9 +7,9 @@ describe("复习样式设置", () => {
         expect(readSettings({ review: { layout: "unknown", engine: "unknown" } }).review.layout).toBe("context");
         expect(readSettings({ review: { layout: "unknown", engine: "unknown" } }).review.engine).toBe("builtin");
     });
-    it("语境对照设置可保存回读，其他复习配置保留", () => {
+    it("旧 SR 设置统一归入内置复习，其他配置保留", () => {
         const config = readSettings({ review: { layout: "focus", engine: "spaced-repetition", newLimit: 150, retention: .92 } });
-        expect(config.review).toEqual({ layout: "focus", engine: "spaced-repetition", newLimit: 150, retention: .92 });
+        expect(config.review).toEqual({ layout: "focus", engine: "builtin", newLimit: 150, retention: .92 });
         expect(readSettings(JSON.parse(JSON.stringify(config))).review).toEqual(config.review);
     });
     it("每日上限支持 10 至 200，旧的低于 10 的设置调整到 10", () => {
