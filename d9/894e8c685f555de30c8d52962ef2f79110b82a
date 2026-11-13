@@ -1,0 +1,164 @@
+src/lingualeaf/library-schema.ts
+  s_7acb5e96268eef::t_136700f2c972e9 3
+  s_7acb5e96268eef::t_9ed869bb1af99f 20-102
+  s_7acb5e96268eef::t_3f9a9b737055b9 1-2,4-19,103-107
+src/lingualeaf/domain.ts
+  s_7acb5e96268eef::t_14e21292edf8b1 47-48
+src/lingualeaf/review/service.ts
+  s_7acb5e96268eef::t_845047211625c8 3-5,8-16,18,21-25,27-35,42-48,52-75,78,80-84,103-115
+  s_7acb5e96268eef::t_767ef9cb0607e5 26
+  s_7acb5e96268eef::t_eebac6d2adec4e 86-89,91-101
+  s_7acb5e96268eef::t_9ed869bb1af99f 6-7
+  s_7acb5e96268eef::t_3d804f05cd0a76 1-2,17,19-20,36-41,49-51,76-77,79,85,90,102
+src/dictionary/uses-test.ts
+  s_7acb5e96268eef::t_9ed869bb1af99f 1-36
+src/dictionary/youdao/View.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 50-51,53
+src/lingualeaf/review/engine.ts
+  s_7acb5e96268eef::t_75f7beb1d4845d 61-62,71-77,84
+  s_7acb5e96268eef::t_845047211625c8 32-47
+src/dictionary/cambridge/View.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 26-27,29
+src/dictionary/deepl/View.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 31-32,34
+src/lingualeaf/library.ts
+  s_7acb5e96268eef::t_136700f2c972e9 1-5,7-12
+  s_7acb5e96268eef::t_767ef9cb0607e5 6
+  s_7acb5e96268eef::t_107cfd321e940a 13
+src/views/DataPanel.vue
+  s_7acb5e96268eef::t_c31162b522defb 155
+  s_7acb5e96268eef::t_b3173e1f11724e 176-184,187-188
+  s_7acb5e96268eef::t_54530b8c8ad074 4,99,120,122,134,138-139,141-143,150,156,164,166,170-173
+src/lingualeaf/library-settings.ts
+  s_7acb5e96268eef::t_a2f0e9b54a229c 1-39,56-60
+  s_7acb5e96268eef::t_767ef9cb0607e5 40-55
+docs/lingualeaf/architecture-deployment-verification.json
+  s_7acb5e96268eef::t_9304e3d7055557 5,8-10,15,18-20
+  s_7acb5e96268eef::t_aab670f410eb80 1-4,6-7,11-14,16-17,21-22
+src/dictionary/jukuu/View.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 27-28,30
+docs/lingualeaf/独立学习库.md
+  s_d8c3eaae5534c8::t_373f94f775c6b0 1-49
+src/plugin.ts
+  s_7acb5e96268eef::t_a2f0e9b54a229c 72-74,185-195,200-209
+  s_7acb5e96268eef::t_b3173e1f11724e 1,95
+  s_7acb5e96268eef::t_dc22dcf9a2e522 68-71,75,93
+src/lingualeaf/library-migration.ts
+  s_d8c3eaae5534c8::t_4cb4a5780eff1f 1-180,182-191
+  s_d8c3eaae5534c8::t_cbc584d1e9f7c4 181
+src/views/LearnPanel.vue
+  s_7acb5e96268eef::t_14e21292edf8b1 5
+  s_7acb5e96268eef::t_3adfb5d949e28d 30
+src/lingualeaf/reading-block.ts
+  s_7acb5e96268eef::t_a2845fc66a835b 24,26,28,31,69
+  s_7acb5e96268eef::t_53930dcea14cd6 1-23,25,27,29-30,32-68,70-72
+src/dictionary/hjdict/View.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 22-23,25
+src/lingualeaf/repository.ts
+  s_7acb5e96268eef::t_75f7beb1d4845d 11-12
+  s_7acb5e96268eef::t_136700f2c972e9 3
+  s_7acb5e96268eef::t_35b1fdd7a8d3eb 1-2,4-10,13-46
+src/lingualeaf/selection-query.ts
+  s_7acb5e96268eef::t_53930dcea14cd6 1-2,8-11,25-26
+src/lingualeaf/library-test.ts
+  s_7acb5e96268eef::t_a2845fc66a835b 56
+  s_7acb5e96268eef::t_136700f2c972e9 240-271
+  s_7acb5e96268eef::t_7d4a0e0ef7e9b9 132-239
+  s_d8c3eaae5534c8::t_76339338d108b0 1-55,57-131
+src/lingualeaf/selection.ts
+  s_7acb5e96268eef::t_53930dcea14cd6 1,18-20,29
+src/lingualeaf/reading-block-test.ts
+  s_7acb5e96268eef::t_7d4a0e0ef7e9b9 1-39,45-80
+  s_7acb5e96268eef::t_a2845fc66a835b 40-44
+src/lingualeaf/review/modal-test.ts
+  s_d8c3eaae5534c8::t_b53920ac47eae0 117-149
+src/lingualeaf/library-manager.ts
+  s_7acb5e96268eef::t_75f7beb1d4845d 82
+  s_7acb5e96268eef::t_abcc6b27fe550b 1-81,83-86
+src/lingualeaf/sync-contract.ts
+  s_7acb5e96268eef::t_eebac6d2adec4e 1-37
+src/lingualeaf/source-locator.ts
+  s_7acb5e96268eef::t_53930dcea14cd6 2-34,37-105
+  s_7acb5e96268eef::t_c31162b522defb 1,35-36
+src/settings.ts
+  s_7acb5e96268eef::t_14e21292edf8b1 1,49-54,106
+docs/lingualeaf/架构升级交付说明.md
+  s_7acb5e96268eef::t_9304e3d7055557 60
+  s_7acb5e96268eef::t_0e35f5d2854828 3
+  s_7acb5e96268eef::t_aab670f410eb80 1-2,4-59,61-89
+src/lingualeaf/config-test.ts
+  s_d8c3eaae5534c8::t_16fe1265e5d022 28
+README.zh-CN.md
+  s_d8c3eaae5534c8::t_373f94f775c6b0 5-7
+src/lingualeaf/legacy-adapter.ts
+  s_7acb5e96268eef::t_7239ca7a8c8fd6 1-181
+scripts/migrate-independent-library.mjs
+  s_d8c3eaae5534c8::t_4cb4a5780eff1f 1-23
+docs/lingualeaf/architecture-migration-verification.json
+  s_7acb5e96268eef::t_9590a3cc6dab08 1-16,24
+  s_7acb5e96268eef::t_ffff4d53d94356 20-23
+  s_7acb5e96268eef::t_0877f9738e134a 17-19
+package.json
+  s_7acb5e96268eef::t_c31162b522defb 8,11-12
+  s_7acb5e96268eef::t_92637b56419bb8 34-35
+src/lingualeaf/review/repository.ts
+  s_7acb5e96268eef::t_3d804f05cd0a76 1-106
+src/lingualeaf/runtime.ts
+  s_7acb5e96268eef::t_14e21292edf8b1 181,194
+  s_7acb5e96268eef::t_b3173e1f11724e 15-16,24-26,72,167-168,171,178-180,185,187-188,190-193,195-198,235,280
+  s_7acb5e96268eef::t_3d804f05cd0a76 189
+  s_7acb5e96268eef::t_72048665403acb 202,214,229-234,247,260-269,273-279,285
+src/dictionary/uses.ts
+  s_7acb5e96268eef::t_b3173e1f11724e 3-4,6-18,20,23
+src/lingualeaf/review/modal.ts
+  s_7acb5e96268eef::t_845047211625c8 11,19-20,50-51,113-114,116,222,231,233,242,250
+  s_7acb5e96268eef::t_eebac6d2adec4e 36-39,99-101
+  s_7acb5e96268eef::t_9ed869bb1af99f 9,145,160,162,183
+  s_7acb5e96268eef::t_3d804f05cd0a76 1,18
+  s_7acb5e96268eef::t_b655d4bb72ef66 105-108,110-112,281-282,288-290
+src/views/SearchPanel.vue
+  s_7acb5e96268eef::t_b3173e1f11724e 158,163
+src/lingualeaf/library-files.ts
+  s_7acb5e96268eef::t_75f7beb1d4845d 64-72,81,110
+  s_7acb5e96268eef::t_35b1fdd7a8d3eb 2-63,73-80
+  s_7acb5e96268eef::t_603131075e671a 1,82-109,111
+src/lingualeaf/host.ts
+  s_7acb5e96268eef::t_9ed869bb1af99f 5,140
+  s_7acb5e96268eef::t_7239ca7a8c8fd6 1,141,150-151,155-163,165,167,170,225,229,232-234,238,242-243
+  s_7acb5e96268eef::t_53930dcea14cd6 7,106
+  s_7acb5e96268eef::t_75f7beb1d4845d 28-29,147,179-182,224
+  s_7acb5e96268eef::t_98965dc6103741 8-9,26-27,30-31,47-52,125-129,146,148,171-178,183-187,218-223
+src/lingualeaf/learning-core.ts
+  s_7acb5e96268eef::t_136700f2c972e9 1-110,113-180
+  s_7acb5e96268eef::t_a2845fc66a835b 111-112
+docs/lingualeaf/independent-library-verification.json
+  s_d8c3eaae5534c8::t_93fc4ed7f5596f 1-69
+package-lock.json
+  s_7acb5e96268eef::t_c446903a6df7fd 28-29,1775-1803,1866-1902,2008-2014,3883-3889,4083-4089,4961-4967,4989-5005,6096-6121,6175-6197,6282-6287,7552-7557,7694-7699,8220-8225,8238-8247
+src/lingualeaf/config.ts
+  s_7acb5e96268eef::t_d7a17657227a43 39-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "d9894e8c685f555de30c8d52962ef2f79110b82a",
+  "prompts": {},
+  "sessions": {
+    "s_7acb5e96268eef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d362-58f7-7143-a488-276884a5c626",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    },
+    "s_d8c3eaae5534c8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c9a0-2ce6-7001-9e21-588cdbdcebb8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
