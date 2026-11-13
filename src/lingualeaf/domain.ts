@@ -44,6 +44,8 @@ export interface LocatedCard {
 }
 /** 原文选区对应的可追溯上下文 */
 export interface ArticleContext {
+    /** 查询来源位置是否已经通过结构和文本校验 */
+    location?: "confirmed" | "snapshot";
     /** 英文原段落，避免伪造句界 */
     sentence: string;
     /** 紧随原段落的已有译文 */

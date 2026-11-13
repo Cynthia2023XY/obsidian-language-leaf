@@ -1,3 +1,4 @@
+import type { ReviewRepository } from "./repository";
 import { Modal, Notice, TFile } from "obsidian";
 import type LinguaLeaf from "../../plugin";
 import type { IndexedCard } from "../host";
@@ -5,15 +6,18 @@ import { newId } from "../domain";
 import { animateReveal } from "./reveal-motion";
 import { onPronunciation, stopPronunciation } from "../../utils/helpers";
 import { MigrationService } from "./migration";
-import { GRADES, interval, prepare, priority, ReviewStore, reviewKey, studyDay } from "./engine";
+import { GRADES, interval, reviewKey } from "./engine";
 import type { Prepared, ReviewEvent, ReviewState } from "./engine";
+import { ReviewService } from "./service";
 import { renderNoteMarkdown } from "../note-markdown";
 
 /** The host owns the close button; answer content scrolls independently of grading. */
 export class ReviewModal extends Modal {
     /** 换卡、编辑或关闭时清理笔记 Markdown 渲染资源 */
     private disposeNote?: () => void;
-    private store: ReviewStore;
+    private store: ReviewRepository;
+    /** 展示层只消费统一复习服务的队列和操作结果 */
+    private service: ReviewService;
     private audioUnsubscribe?: () => void;
     private cancelRevealMotion?: () => void;
     private readonly layout: "focus" | "context";
@@ -29,8 +33,10 @@ export class ReviewModal extends Modal {
     private timer?: number;
     private turn = 0;
     private initialized = false;
-    private sessionPath(): string { return `${this.store.root}/review/sessions/${this.source ? encodeURIComponent(this.source).replace(/%/g, "_") : "all"}.json`; }
-    private async checkpoint(): Promise<void> { await this.plugin.lingualeaf.host.port.write(this.sessionPath(), JSON.stringify({ schema: 1, id: this.session, day: studyDay(new Date()), skipped: Array.from(this.skipped), last: this.last })); }
+    /** 宿主只提供会话归属，路径和学习日持久化由服务管理 */
+    private sessionKey(): string { return `${this.plugin.lingualeaf.host.library ? this.plugin.settings.learning.vaultId + "-" : ""}${this.source || "all"}`; }
+    /** 界面状态变更后保存会话断点 */
+    private async checkpoint(): Promise<void> { await this.service.checkpoint(this.sessionKey(), this.session, this.skipped); }
     private key = (event: KeyboardEvent): void => {
         if (this.busy || this.closed || this.pending) return;
         const action = reviewKey(event, this.revealed);
@@ -41,7 +47,8 @@ export class ReviewModal extends Modal {
     constructor(private plugin: LinguaLeaf, private source?: string) {
         super(plugin.app);
         this.layout = plugin.settings.review.layout === "context" ? "context" : "focus";
-        this.store = new ReviewStore(plugin.lingualeaf.host.port, plugin.settings.learning.dataFolder);
+        this.service = new ReviewService(plugin.lingualeaf.host.port, plugin.settings.learning.dataFolder, plugin.lingualeaf.host.library);
+        this.store = this.service.store;
     }
     onOpen(): void {
         this.modalEl.addClass("ll-review-modal");
@@ -89,46 +96,26 @@ export class ReviewModal extends Modal {
         stopPronunciation("review");
         const token = ++this.turn; this.busy = true;
         if (!this.initialized) {
-            const raw = await this.plugin.lingualeaf.host.port.read(this.sessionPath());
-            if (raw) {
-                const saved = JSON.parse(raw);
-                if (saved.schema === 1 && saved.day === studyDay(new Date()) && typeof saved.id === "string") {
-                    this.session = saved.id; this.skipped = new Set(Array.isArray(saved.skipped) ? saved.skipped.filter((id: unknown) => typeof id === "string") : []);
-                }
-            }
+            // 服务只恢复同一学习日的有效会话。
+            const saved = await this.service.resume(this.sessionKey());
+            if (saved) { this.session = saved.id; this.skipped = new Set(saved.skipped); }
             this.initialized = true;
             await this.checkpoint();
         }
-        if (this.timer) window.clearTimeout(this.timer);
-        const blocked = new Set((await new MigrationService(this.plugin.lingualeaf.host).journals()).filter(journal => journal.phase !== "done").map(journal => journal.cardId));
-        const cards = (await this.plugin.lingualeaf.host.scan()).filter(item => item.path && item.card.owner === "builtin" && !blocked.has(item.card.id) && (!this.source || item.path === this.source));
-        const rows = await Promise.all(cards.map(async item => ({ item, state: await this.store.state(item.card.id) })));
-        if (this.closed || token !== this.turn) return;
-        const now = new Date(); const day = studyDay(now);
-        // Quota is vault-wide, including cards outside the current article.
-        const allPaths = await this.plugin.lingualeaf.host.port.list(`${this.store.root}/review/events/`);
-        const newToday = new Set<string>();
-        const allEvents: ReviewEvent[] = [];
-        for (const path of allPaths.filter(path => path.endsWith(".json"))) {
-            const raw = await this.plugin.lingualeaf.host.port.read(path); if (raw) allEvents.push(JSON.parse(raw));
+        if (this.plugin.lingualeaf.host.library) {
+            // 每轮使用数据源的统一规则，避免不同窗口调度参数分叉。
+            const catalog = await this.plugin.lingualeaf.host.library.catalog();
+            Object.assign(this.plugin.settings.review, catalog.review);
         }
-        const sessionGrades = allEvents.filter(event => event.kind === "grade" && event.session === this.session);
-        const lastGrade = sessionGrades.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
-        if (lastGrade && !allEvents.some(event => event.cardId === lastGrade.cardId && event.after.revision > lastGrade.after.revision)) this.last = lastGrade;
-        else this.last = undefined;
-        const undone = new Set(allEvents.filter(event => event.kind === "undo").map(event => event.undoes));
-        for (const event of allEvents) if (event.kind === "grade" && !undone.has(event.id) && event.before.card.state === 0 && studyDay(new Date(event.at)) === day) newToday.add(event.cardId);
+        if (this.timer) window.clearTimeout(this.timer);
+        const blocked = new Set((this.plugin.lingualeaf.host.library ? [] : await new MigrationService(this.plugin.lingualeaf.host).journals()).filter(journal => journal.phase !== "done").map(journal => journal.cardId));
+        const cards = (await this.plugin.lingualeaf.host.scan()).filter(item => (this.plugin.lingualeaf.host.library || item.path) && item.card.owner === "builtin" && !blocked.has(item.card.id) && (!this.source || (item.path === this.source && (!this.plugin.lingualeaf.host.library || item.sources?.some(source => source.vaultId === this.plugin.settings.learning.vaultId && source.path === this.source)))));
+        // 队列、额度、会话统计由可复用服务统一计算。
+        const { rows, now, due, fresh, eligible, selected, availableNew, reviewed, last } = await this.service.queue(cards, this.session, this.skipped, this.plugin.settings.review);
         if (this.closed || token !== this.turn) return;
-        const eligible = rows.filter(row => !row.state.suspended && !this.skipped.has(row.item.card.id));
-        const due = eligible.filter(row => row.state.card.state !== 0 && Date.parse(row.state.card.due) <= now.getTime()).sort((a, b) => priority(a.state) - priority(b.state) || Date.parse(a.state.card.due) - Date.parse(b.state.card.due));
-        const fresh = eligible.filter(row => row.state.card.state === 0);
-        const selected = due[0] || (newToday.size < this.plugin.settings.review.newLimit ? fresh[0] : undefined);
+        this.last = last;
         this.busy = false; this.revealed = false; this.pending = undefined;
         this.contentEl.empty(); this.current = selected?.item; this.prepared = undefined;
-        // 剩余数量包含当前卡片，并只计入今日新词额度内可开始的卡片。
-        const availableNew = Math.min(fresh.length, Math.max(0, this.plugin.settings.review.newLimit - newToday.size));
-        // 本轮已复习按评分过的不同卡片统计，撤销的评分不计入。
-        const reviewed = new Set(allEvents.filter(event => event.kind === "grade" && event.session === this.session && !undone.has(event.id) && rows.some(row => row.item.card.id === event.cardId)).map(event => event.cardId));
         // 进度与宿主标题同行，刷新时只替换进度而不重复追加。
         this.titleEl.querySelector(".ll-review-progress")?.remove();
         this.titleEl.createSpan({ text: `待复习 ${due.length + availableNew} · 本轮已复习 ${reviewed.size}`, cls: "ll-review-progress", attr: { "aria-live": "polite", title: "待复习包含当前卡片和今日额度内的新卡，不含已暂停、跳过或尚未到复习时间的卡片。本轮已复习按已评分的不同卡片计算，撤销后不计入。" } });
@@ -155,7 +142,7 @@ export class ReviewModal extends Modal {
             if (rows.some(row => row.state.suspended)) this.button(actions, "查看已暂停", () => this.showSuspended(rows));
             return;
         }
-        this.prepared = prepare(selected.item.card.id, selected.state, now, this.plugin.settings.review.retention);
+        this.prepared = this.service.preview(selected.item.card.id, selected.state, this.plugin.settings.review.retention);
         const body = this.contentEl.createDiv({ cls: "ll-review-body" });
         body.createDiv({ text: selected.item.card.kind === "phrase" ? "短语 · 回想它在原文中的含义" : "单词 · 回想它在原文中的含义", cls: "ll-review-eyebrow" });
         const title = body.createEl("h2", { text: selected.item.card.text, cls: "ll-review-expression" });
@@ -170,9 +157,9 @@ export class ReviewModal extends Modal {
             original.createEl("p", { text: selected.item.card.sentence || "此卡片暂无原句，可先回想词句含义。", cls: "ll-review-sentence" });
             const source = original.createDiv({ cls: "ll-review-source" });
             source.createSpan({ text: "出处", cls: "ll-review-eyebrow" });
-            const sourceName = selected.item.path.split("/").pop()!.replace(/\.md$/i, "");
+            const sourceName = selected.item.path.split("/").pop()!.replace(/\.md$/i, "") || "未记录出处";
             const sourceLink = this.button(source, sourceName, () => {
-                void this.app.workspace.openLinkText(selected.item.path, "", true).catch(error => new Notice(`无法打开出处：${String(error)}`));
+                void (this.plugin.lingualeaf.host.library ? this.plugin.lingualeaf.host.openSource(selected.item) : this.app.workspace.openLinkText(selected.item.path, "", true)).catch(error => new Notice(`无法打开出处：${String(error)}`));
             }, "ll-review-source-link");
             sourceLink.setAttribute("title", selected.item.path);
             sourceLink.setAttribute("aria-label", `打开来源文章：${sourceName}`);
@@ -193,7 +180,7 @@ export class ReviewModal extends Modal {
         this.cancelRevealMotion?.();
         const body = this.contentEl.querySelector<HTMLElement>(".ll-review-body");
         const previousHeight = this.layout === "context" ? body.getBoundingClientRect().height : 0;
-        this.prepared = prepare(this.prepared.id, this.prepared.before, new Date(), this.plugin.settings.review.retention);
+        this.prepared = this.service.preview(this.prepared.id, this.prepared.before, this.plugin.settings.review.retention);
         this.revealed = true;
         const card = this.current.card;
         const answer = this.contentEl.querySelector<HTMLElement>(".ll-review-answer");
@@ -232,7 +219,7 @@ export class ReviewModal extends Modal {
             this.reveal(); new Notice("停留时间较长，复习间隔已更新，请重新选择评分"); return;
         }
         const prepared = this.prepared;
-        this.pending = { schema: 1, id: newId(), cardId: prepared.id, at: new Date().toISOString(), scheduledAt: prepared.at.toISOString(), session: this.session, kind: "grade", before: prepared.before, after: { ...prepared.before, revision: prepared.before.revision + 1, card: prepared.choices[rating] }, rating, library: "ts-fsrs@5.4.1", retention: prepared.retention };
+        this.pending = this.service.grade(prepared, rating, this.session);
         await this.commitPending();
     }
     private async commitPending(): Promise<void> {
@@ -241,9 +228,9 @@ export class ReviewModal extends Modal {
         this.contentEl.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.disabled = true);
         try {
             const cards = await this.plugin.lingualeaf.host.scan();
-            const current = cards.find(item => item.path && item.card.id === this.pending.cardId && item.card.owner === "builtin");
+            const current = cards.find(item => (this.plugin.lingualeaf.host.library || item.path) && item.card.id === this.pending.cardId && item.card.owner === "builtin");
             if (!current || JSON.stringify(current.card) !== JSON.stringify(this.current.card)) throw new Error("来源卡片已更改，请关闭后重新复习");
-            await this.store.append(this.pending); this.last = this.pending; this.pending = undefined;
+            await this.service.commit(this.pending); this.last = this.pending; this.pending = undefined;
             try { await this.checkpoint(); } catch { new Notice("评分已保存，会话位置未能保存；可重新打开窗口继续"); }
             if (!this.closed) await this.refresh();
         } catch (error) { this.fail(error); }
@@ -252,9 +239,7 @@ export class ReviewModal extends Modal {
         if (!this.last || this.busy || this.pending) return;
         this.busy = true;
         try {
-            const state = await this.store.state(this.last.cardId);
-            if (state.revision !== this.last.after.revision) throw new Error("此卡已有后续操作，无法撤销");
-            await this.store.append({ ...this.last, id: newId(), at: new Date().toISOString(), kind: "undo", before: state, after: { ...this.last.before, revision: state.revision + 1 }, undoes: this.last.id, rating: undefined });
+            await this.service.undo(this.last);
             this.last = undefined; this.skipped.clear(); await this.checkpoint(); if (!this.closed) await this.refresh();
         } catch (error) { this.fail(error); }
     }
@@ -262,7 +247,7 @@ export class ReviewModal extends Modal {
         if (this.pending) return;
         this.busy = true;
         try {
-            await this.store.append({ schema: 1, id: newId(), cardId: id, at: new Date().toISOString(), session: this.session, kind: "suspend", before, after: { ...before, revision: before.revision + 1, suspended }, library: "ts-fsrs@5.4.1", retention: this.plugin.settings.review.retention });
+            await this.service.suspend(id, before, suspended, this.session, this.plugin.settings.review.retention);
             if (!this.closed) await this.refresh();
         } catch (error) { this.fail(error); }
     }
@@ -293,14 +278,16 @@ export class ReviewModal extends Modal {
         this.button(this.contentEl, "保存并返回", () => { void (async () => {
             this.busy = true;
             try {
-                const file = this.app.vault.getAbstractFileByPath(selected.path);
-                if (!(file instanceof TFile)) throw new Error("来源已删除");
+                const file = this.plugin.lingualeaf.host.library ? undefined : this.app.vault.getAbstractFileByPath(selected.path);
+                if (!this.plugin.lingualeaf.host.library && !(file instanceof TFile)) throw new Error("来源已删除");
                 const current = (await this.plugin.lingualeaf.host.scan()).find(item => item.card.id === selected.card.id && item.path === selected.path);
                 if (!current || JSON.stringify(current.card) !== JSON.stringify(selected.card)) throw new Error("卡片已被修改，请重新打开");
                 if (!changes.meaning.trim()) throw new Error("释义不能为空");
                 changes.meaning = changes.meaning.replace(/\s*\n\s*/g, " ");
                 if (changes.noteEntries) changes.noteEntries = changes.notes ? [changes.notes] : [];
-                await this.plugin.lingualeaf.host.save(file, changes); if (!this.closed) await this.refresh();
+                // 主例句同步到学习资料自身的例句列表，避免编辑后仍显示旧内容。
+                if (changes.sentences?.length) changes.sentences = [{ ...changes.sentences[0], text: changes.sentence, trans: changes.translation }, ...changes.sentences.slice(1)];
+                await this.plugin.lingualeaf.host.save(file as TFile | undefined, changes, undefined, selected.revision); if (!this.closed) await this.refresh();
             } catch (error) { this.fail(error); }
         })(); }, "mod-cta");
         this.button(this.contentEl, "取消", () => { void this.refresh().catch(error => this.fail(error)); });

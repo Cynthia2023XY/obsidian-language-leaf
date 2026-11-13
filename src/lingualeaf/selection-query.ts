@@ -1,9 +1,14 @@
+import { selectedReadingBlock } from "./reading-block";
+import type { ReadingBlock } from "./reading-block";
 import { selectedParagraph } from "./selection";
 
 export interface ReadingSelection {
     range: Range;
     text: string;
-    paragraph: HTMLParagraphElement;
+    /** 兼容既有入口的块元素 */
+    paragraph: HTMLElement;
+    /** 结构与精确偏移仅保留在阅读会话中 */
+    block: ReadingBlock;
 }
 export interface SelectionQueryController {
     dispose: () => void;
@@ -17,8 +22,8 @@ export function readingSelection(content: HTMLElement): ReadingSelection | null 
     const text = selection.toString().trim();
     const range = selection.getRangeAt(0);
     if (!text || text.length > 500 || !content.contains(range.startContainer) || !content.contains(range.endContainer)) return null;
-    const paragraph = selectedParagraph(range, content);
-    return paragraph ? { range, text, paragraph } : null;
+    const block = selectedReadingBlock(range, content);
+    return block ? { range, text, paragraph: block.element, block } : null;
 }
 
 /** 原生选区旁的查询按钮，并在修饰键释放时补齐触控板拖选查询。 */

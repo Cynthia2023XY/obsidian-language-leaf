@@ -28,8 +28,10 @@ const emits = defineEmits<{
 
 let result = ref("");
 
-async function onSearch(): Promise<boolean> {
+/** 仅当前词典请求可更新查询结果 */
+async function onSearch(valid: () => boolean): Promise<boolean> {
     let res = await search(props.word, (plugin.lingualeaf.capture?.card.language || plugin.settings.learning.language));
+    if (!valid()) return false;
     if (!res) return false;
 
     result.value = res;

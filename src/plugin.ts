@@ -1,3 +1,4 @@
+import { bindSourceSection } from "./lingualeaf/source-locator";
 import { MarkdownView, Notice, Platform, Plugin } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import { SearchPanelView, SEARCH_ICON, SEARCH_PANEL_VIEW } from "./views/SearchPanelView";
@@ -64,6 +65,14 @@ export default class LinguaLeaf extends Plugin {
             stage = "创建学习运行时";
             this.logLifecycle(stage, "开始");
             this.lingualeaf = new LinguaLeafRuntime(this);
+            if (this.lingualeaf.host.library) {
+                // 启动时验证学习库可读，失败绝不退回旧文章卡片。
+                const catalog = await this.lingualeaf.host.library.catalog();
+                Object.assign(this.settings.review, catalog.review);
+                // 首次升级只固定已成功校验的连接身份，不更换数据源。
+                if (!this.settings.learning.libraryId) { this.settings.learning.libraryId = catalog.id; await this.saveData(this.settings); }
+                this.lingualeaf.host.settings.libraryId = catalog.id;
+            }
             stage = "注册查词面板";
             this.logLifecycle(stage, "开始");
             this.registerView(SEARCH_PANEL_VIEW, leaf => new SearchPanelView(leaf, this));
@@ -81,9 +90,9 @@ export default class LinguaLeaf extends Plugin {
             this.lingualeaf.load();
             this.addCommand({ id: "review-built-in", name: "开始词句复习", callback: () => this.openReview() });
             this.addCommand({ id: "review-current-article", name: "复习当前文章词句", callback: () => { const view = this.app.workspace.getActiveViewOfType(MarkdownView); if (view?.file) this.openReview(view.file.path); else new Notice("请先打开一篇文章"); } });
-            this.addCommand({ id: "migrate-review", name: "迁移 SR 卡片到内置复习（预览）", callback: () => { if (this.reviewModal) { new Notice("请先关闭复习窗口"); return; } new MigrationModal(this).open(); } });
+            this.addCommand({ id: "migrate-review", name: "迁移 SR 卡片到内置复习（预览）", callback: () => { if (this.reviewModal) { new Notice("请先关闭复习窗口"); return; } if (this.lingualeaf.host.library) { new Notice("当前使用独立学习库，旧卡片导入请使用数据源迁移工具，原文章不会被修改"); return; } new MigrationModal(this).open(); } });
             this.addRibbonIcon("layers", "开始词句复习", () => this.openReview());
-            this.registerMarkdownPostProcessor(root => normalizeCardSpacing(root));
+            this.registerMarkdownPostProcessor((root, context) => { normalizeCardSpacing(root); bindSourceSection(root, () => context.getSectionInfo(root)); });
             stage = "注册侧栏按钮";
             this.logLifecycle(stage, "开始");
             this.readingRibbon = this.addRibbonIcon("languages", "进入学习模式", () => { void this.lingualeaf.toggle().catch(report); });
@@ -173,11 +182,31 @@ export default class LinguaLeaf extends Plugin {
         button.setAttribute("aria-pressed", String(active));
         button.setAttribute("title", label);
     }
+    /** 待重载的连接信息，普通设置保存不能把它覆盖回旧数据源 */
+    private pendingConnection?: { libraryPath: string; libraryId: string; vaultId: string };
+    /** 保存已验证的数据源连接，运行中会话仍绑定旧库直到插件重载 */
+    async stageLibraryConnection(libraryPath: string, libraryId: string): Promise<void> {
+        // 保留此前稳定的来源身份，首次连接才创建。
+        const connection = { libraryPath, libraryId, vaultId: this.settings.learning.vaultId || crypto.randomUUID() };
+        // 保留插件设置中尚未归入白名单的历史字段与凭据。
+        const saved = await this.loadData() || {};
+        await this.saveData({ ...saved, ...this.settings, learning: { ...saved.learning, ...this.settings.learning, ...connection } });
+        this.pendingConnection = connection;
+    }
     /** 更新白名单配置并立即应用到学习服务及词典面板 */
     async saveSettings(settings: LeafPluginSettings): Promise<void> {
         // 先持久化，写入失败时不让运行配置与磁盘分叉。
         const next = readSettings(settings);
-        await this.saveData(next);
+        if (next.learning.libraryPath !== this.settings.learning.libraryPath) throw new Error("更换数据源需要先迁移并重新加载插件");
+        if (this.lingualeaf.host.library) {
+            // 只提交实际变动字段，避免一个窗口覆盖另一个窗口的新额度。
+            const patch: Partial<typeof next.review> = {};
+            // 预期值来自当前设置表单的基线，用于逐字段冲突检测。
+            const expected: Partial<typeof next.review> = {};
+            for (const key of ["newLimit", "retention"] as const) if (next.review[key] !== this.settings.review[key]) { patch[key] = next.review[key]; expected[key] = this.settings.review[key]; }
+            if (Object.keys(patch).length) await this.lingualeaf.host.library.configure(patch, expected);
+        }
+        await this.saveData(this.pendingConnection ? { ...next, learning: { ...next.learning, ...this.pendingConnection } } : next);
         this.settings = next;
         configureSpeech(next.speech);
         this.lingualeaf.host.settings = next.learning;

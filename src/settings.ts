@@ -1,3 +1,4 @@
+import { renderLibrarySettings } from "./lingualeaf/library-settings";
 import { App, Notice, PluginSettingTab, Setting, type SettingDefinitionItem } from "obsidian";
 import type LinguaLeaf from "./plugin";
 import { dicts } from "./dictionary/list";
@@ -45,6 +46,12 @@ export class SettingTab extends PluginSettingTab {
     private renderSettings(container: HTMLElement): void {
         this.hide();
         container.empty();
+        if (this.plugin.lingualeaf.host.library) {
+            new Setting(container).setName("独立学习库").setHeading();
+            new Setting(container).setName("当前数据源").setDesc(this.plugin.settings.learning.libraryPath!);
+            container.createEl("p", { text: "收录、编辑、删除和复习只更新学习库；来源文章仅用于查看出处，不会回写。学习库规则由所有接入窗口共用。", cls: "setting-item-description" });
+        }
+        renderLibrarySettings(container, this.plugin);
         new Setting(container).setName("阅读与查词").setHeading();
         container.createEl("p", { text: "更改自动保存并生效。", cls: "setting-item-description" });
         // 控件初始值使用副本，每次修改独立校验后自动保存。
@@ -96,7 +103,7 @@ export class SettingTab extends PluginSettingTab {
         }
         new Setting(container).setName("词句复习").setHeading();
         new Setting(container).setName("复习样式").setDesc("用于内置 FSRS 复习。专注回忆：揭晓后显示语境；语境对照：先看原句，揭晓后并排显示释义和译文。更改后重新打开复习窗口生效。").addDropdown(control => control.addOptions({ focus: "专注回忆", context: "语境对照" }).setValue(draft.review.layout).onChange(value => { this.updateSettings(settings => { settings.review.layout = value as typeof draft.review.layout; }); }));
-        new Setting(container).setName("每日新卡片上限").setDesc("10–200，默认 100；每天凌晨 4 点按本机时区重置。到期复习不受此限制。").addText(control => control.setValue(String(draft.review.newLimit)).onChange(value => { const number = Number(value); if (value.trim() && Number.isInteger(number) && number >= 10 && number <= 200) this.updateSettings(settings => { settings.review.newLimit = number; }); }));
+        new Setting(container).setName("每日新卡片上限").setDesc(this.plugin.lingualeaf.host.library ? "10–200，默认 100；按学习库统一的时区与切日时间计算，各窗口共用额度。到期复习不受此限制。" : "10–200，默认 100；每天凌晨 4 点按本机时区重置。到期复习不受此限制。").addText(control => control.setValue(String(draft.review.newLimit)).onChange(value => { const number = Number(value); if (value.trim() && Number.isInteger(number) && number >= 10 && number <= 200) this.updateSettings(settings => { settings.review.newLimit = number; }); }));
         new Setting(container).setName("目标记忆保持率").setDesc("70%–97%，默认 90%。越高，复习越频繁。").addSlider(control => control.setLimits(70, 97, 1).setValue(Math.round(draft.review.retention * 100)).setDynamicTooltip().onChange(value => { this.updateSettings(settings => { settings.review.retention = value / 100; }); }));
     }
 }

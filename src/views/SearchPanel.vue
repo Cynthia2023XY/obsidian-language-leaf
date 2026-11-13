@@ -155,9 +155,11 @@ watch(word, () => { stopPronunciation("search"); audioMessage.value = ""; audioF
 
 onMounted(() => {
     addEventListener('obsidian-langr-search', onSearch);
+    addEventListener('lingualeaf-dictionary-search', onSearch);
 });
 
 onUnmounted(() => {
     removeEventListener('obsidian-langr-search', onSearch);
+    removeEventListener('lingualeaf-dictionary-search', onSearch);
 });
 </script>

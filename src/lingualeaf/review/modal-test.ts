@@ -114,6 +114,39 @@ describe("真实复习弹窗 DOM 行为", () => {
     });
 });
 
+describe("独立学习资料复习", () => {
+    it("没有文章来源仍可评分并保存进度", async () => {
+        // 独立卡片不提供文章来源或 Vault 文件接口。
+        const setup = fixture();
+        setup.cards[0].path = "";
+        setup.plugin.lingualeaf.host.library = { catalog: async () => ({ review: { newLimit: 100, retention: .9 } }) };
+        setup.modal.open(); await settle();
+        expect(setup.modal.contentEl.textContent).toContain("on the threshold");
+        button(setup.modal, "显示答案").click(); button(setup.modal, "简单").click(); await settle();
+        expect((await setup.store.state("card-test")).revision).toBe(1);
+        setup.modal.close();
+    });
+    it("复习内编辑只更新学习资料及主例句，不要求原文存在", async () => {
+        // 保存函数替代外部学习库边界，文章 API 刻意不提供。
+        const setup = fixture();
+        setup.cards[0].path = "";
+        setup.plugin.lingualeaf.host.library = { catalog: async () => ({ review: { newLimit: 100, retention: .9 } }) };
+        setup.plugin.lingualeaf.host.save = vi.fn(async (file, card) => {
+            expect(file).toBeUndefined();
+            setup.cards[0].card = card;
+        });
+        setup.modal.open(); await settle(); button(setup.modal, "编辑").click();
+        // 修改释义后仍能完成独立保存。
+        const input = setup.modal.contentEl.querySelector("textarea")!;
+        input.value = "独立资料释义"; input.dispatchEvent(new Event("input"));
+        button(setup.modal, "保存并返回").click(); await settle();
+        expect(setup.cards[0].card.meaning).toBe("独立资料释义");
+        expect(setup.plugin.lingualeaf.host.save).toHaveBeenCalledOnce();
+        setup.modal.close();
+    });
+});
+
+
 
 describe("复习样式", () => {
     it("语境对照先显示原句，揭晓后显示释义和译文", async () => {

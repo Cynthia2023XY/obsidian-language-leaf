@@ -1,0 +1,22 @@
+{
+  "雅思": {
+    "directory": "/Users/dingxinyi.2/Documents/Obsidian Notes/雅思/.obsidian/plugins/language-leaf",
+    "sha256": {
+      "main.js": "22a62145e8e58829a778bbf4ab13ff06f760fb6a799c8de72a0a05df99dd15d3",
+      "styles.css": "985faaa477a80bec707a4992a91192b6f20ab4540d905b74ff0464627df5d73b",
+      "manifest.json": "38a64fadfbd4f26ba04d291060e3d26feedafe5a9cd58702e0d947a853b58832"
+    },
+    "libraryId": "1887c5a1-0fc3-4cf6-ad0a-e4caa203827b",
+    "libraryPath": "/Users/dingxinyi.2/Documents/Obsidian Notes/Language Leaf Library"
+  },
+  "Cynthia Note": {
+    "directory": "/Users/dingxinyi.2/Documents/Obsidian Notes/Cynthia Note/.obsidian/plugins/language-leaf",
+    "sha256": {
+      "main.js": "22a62145e8e58829a778bbf4ab13ff06f760fb6a799c8de72a0a05df99dd15d3",
+      "styles.css": "985faaa477a80bec707a4992a91192b6f20ab4540d905b74ff0464627df5d73b",
+      "manifest.json": "38a64fadfbd4f26ba04d291060e3d26feedafe5a9cd58702e0d947a853b58832"
+    },
+    "libraryId": "1887c5a1-0fc3-4cf6-ad0a-e4caa203827b",
+    "libraryPath": "/Users/dingxinyi.2/Documents/Obsidian Notes/Language Leaf Library"
+  }
+}

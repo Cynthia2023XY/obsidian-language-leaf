@@ -29,9 +29,22 @@ export function prepare(id: string, before: ReviewState, now: Date, retention: n
     for (const grade of GRADES) choices[grade.rating] = serialize(results[grade.rating as Grade].card);
     return { id, before, at: now, choices, retention };
 }
-export function studyDay(date: Date): string {
-    const local = new Date(date); local.setHours(local.getHours() - 4);
-    return `${local.getFullYear()}-${local.getMonth() + 1}-${local.getDate()}`;
+/** 所有设备使用学习库指定时区和切换点计算学习日 */
+export function studyDay(date: Date, calendar?: { timeZone: string; rolloverHour: number }): string {
+    // 兼容旧模式的本地学习日，独立库始终显式传入配置。
+    if (!calendar) {
+        // 旧版四点切日规则保持不变。
+        const local = new Date(date); local.setHours(local.getHours() - 4);
+        return `${local.getFullYear()}-${local.getMonth() + 1}-${local.getDate()}`;
+    }
+    if (!Number.isInteger(calendar.rolloverHour) || calendar.rolloverHour < 0 || calendar.rolloverHour > 23) throw new Error("学习日切换时间无效");
+    // 先读取指定时区的墙上时间，避免夏令时跨日偏移。
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: calendar.timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(date);
+    // 以 UTC 表达墙上日期，仅用于日期运算。
+    const value = (type: string): number => Number(parts.find(part => part.type === type)?.value);
+    // 四点之前归属前一个学习日。
+    const day = new Date(Date.UTC(value("year"), value("month") - 1, value("day") - (value("hour") < calendar.rolloverHour ? 1 : 0)));
+    return `${day.getUTCFullYear()}-${day.getUTCMonth() + 1}-${day.getUTCDate()}`;
 }
 export function reviewKey(event: KeyboardEvent, revealed: boolean): number | "reveal" | undefined {
     const target = event.target as HTMLElement;
@@ -45,6 +58,8 @@ export function interval(card: SavedCard, now: Date): string {
 }
 /** Revision filenames are create-only: two writers cannot overwrite the same review. */
 export class ReviewStore {
+    /** 已验证的不可变事件前缀，同版本不会重复读取全部旧历史 */
+    private histories = new Map<string, { paths: string[]; events: ReviewEvent[] }>();
     constructor(private port: FilePort, readonly root: string) {}
     private path(id: string, revision: number): string {
         if (!/^[a-zA-Z0-9-]+$/.test(id)) throw new Error("非法卡片身份");
@@ -53,14 +68,20 @@ export class ReviewStore {
     async events(id: string): Promise<ReviewEvent[]> {
         const prefix = this.path(id, 0).replace(/[^/]+$/, "");
         const paths = (await this.port.list(prefix)).filter(path => path.endsWith(".json")).sort();
-        const events: ReviewEvent[] = [];
-        for (const path of paths) {
+        // 本地事件只追加不覆盖，路径前缀不变时复用已验证历史。
+        const cached = this.histories.get(id);
+        // 发现路径被删改时回到完整重建，避免复用失效链。
+        const reusable = cached && cached.paths.every((path, index) => paths[index] === path);
+        // 返回克隆，调用者不能修改缓存中的调度基线。
+        const events: ReviewEvent[] = reusable ? structuredClone(cached.events) : [];
+        for (const path of paths.slice(events.length)) {
             const event = JSON.parse((await this.port.read(path)) || "null") as ReviewEvent;
             if (!event || event.schema !== 1 || event.cardId !== id || event.before.revision !== events.length || event.after.revision !== events.length + 1 || path !== this.path(id, events.length + 1)) throw new Error("复习记录冲突或损坏，请先处理同步冲突");
             validateState(event.before); validateState(event.after);
             if (events.length && JSON.stringify(events[events.length - 1].after) !== JSON.stringify(event.before)) throw new Error("复习记录链不连续");
             events.push(event);
         }
+        this.histories.set(id, { paths, events: structuredClone(events) });
         return events;
     }
     async state(id: string): Promise<ReviewState> {

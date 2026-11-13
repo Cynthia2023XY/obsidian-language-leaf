@@ -25,7 +25,7 @@ describe("简化配置", () => {
     it("默认只提供原生学习、词典和 SR 配置", () => {
         // 当前数据目录不复用旧数据库或独立调度事件。
         const config = readSettings(null);
-        expect(config.learning).toEqual({ language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData", shortSentenceThreshold: 15, contextSentenceCount: 1 });
+        expect(config.learning).toEqual({ language: "en", autoQuerySelection: false, modifier: "shiftKey", deck: "#flashcards", separator: "?", dataFolder: "LinguaLeafData", libraryPath: "", vaultId: "", shortSentenceThreshold: 15, contextSentenceCount: 1 });
         expect(Object.keys(config).sort()).toEqual(["auto_pron", "dictionaries", "learning", "review", "review_auto_pron", "review_prons", "speech", "use_machine_trans"]);
     });
     it("不接入旧插件数据库、服务端、阅读器和内置调度选项", () => {

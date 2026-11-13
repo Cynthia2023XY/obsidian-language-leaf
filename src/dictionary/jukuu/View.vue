@@ -24,8 +24,10 @@ const emits = defineEmits<{
 
 let result = reactive<JukuuResult>({ lang: "zheng", sens: [] });
 
-async function onSearch() {
+/** 仅当前词典请求可更新查询结果 */
+async function onSearch(valid: () => boolean) {
     let res = await search(props.word);
+    if (!valid()) return false;
     if (!res) return false;
 
     result.sens = res.result.sens;

@@ -2,7 +2,9 @@
 
 作者：Cynthia Ding。[代码仓库](https://github.com/Cynthia2023XY/obsidian-language-leaf) · [版本下载](https://github.com/Cynthia2023XY/obsidian-language-leaf/releases/latest)
 
-在 Obsidian 原生 Markdown 中阅读、查词和收录词句，直接保存为同篇文章中的闪卡，统一使用语叶内置 FSRS 复习。
+在 Obsidian 原生 Markdown 中阅读、查词和收录词句，使用语叶内置 FSRS 复习。已迁移的独立学习库将词句保存为独立资料，来源文章仅供查看出处，不再回写；未迁移的安装保留随文卡片模式。
+
+独立学习库的数据格式、迁移与本地共享边界见[独立学习库说明](docs/lingualeaf/独立学习库.md)。
 
 ## 学习与收词
 
