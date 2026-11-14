@@ -36,6 +36,7 @@ export function readSettings(value: unknown): LeafPluginSettings {
         modifier: ["shiftKey", "ctrlKey", "altKey", "metaKey"].includes(learning.modifier) ? learning.modifier : "shiftKey",
         deck: typeof learning.deck === "string" && /^#[\p{L}\p{N}_/-]+$/u.test(learning.deck) ? learning.deck : "#flashcards",
         separator: typeof learning.separator === "string" && learning.separator.trim() && !/[\r\n<>]/.test(learning.separator) ? learning.separator : "?",
+        ...(["vault", "external"].includes(learning.libraryMode) ? { libraryMode: learning.libraryMode } : {}),
         libraryPath: typeof learning.libraryPath === "string" ? learning.libraryPath : "",
         ...(typeof learning.libraryId === "string" && learning.libraryId ? { libraryId: learning.libraryId } : {}),
         vaultId: typeof learning.vaultId === "string" ? learning.vaultId : "",

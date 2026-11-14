@@ -1,3 +1,5 @@
+import { readSettings } from "./config";
+import { ReviewService } from "./review/service";
 import { describe, it, expect, vi } from "vitest";
 import { TFile, MarkdownView } from "obsidian";
 import { LeafHost } from "./host";
@@ -221,5 +223,46 @@ describe("内置复习迁移事务", () => {
         const setup = fixture(); await setup.host.save(setup.file, setup.card);
         await setup.host.save(setup.file, { ...setup.card, meaning: "新释义" });
         await expect(new MigrationService(setup.host).migrate({ path: "Article.md", card: setup.card }, false)).rejects.toThrow("变化");
+    });
+});
+
+
+/** 已发布 0.5.0 的普通配置不包含独立词库连接字段 */
+describe("普通单库用户升级兼容", () => {
+    it("无数据源配置时沿用库内卡片和评分历史，不创建或迁移独立词库", async () => {
+        // 以旧版真实格式生成文章卡片和第一条评分历史。
+        const setup = fixture();
+        await setup.host.save(setup.file, { ...setup.card, owner: "builtin" });
+        // 原有库内评分仓库保持不变，模拟升级前已开始复习。
+        const original = new ReviewStore(setup.host.port, "LinguaLeafData");
+        // 固定评分时间避免依赖机器时区和运行日期。
+        const at = new Date("2026-11-14T06:00:00Z");
+        // 用正式引擎建立第一条合法评分。
+        const preview = prepare(setup.card.id, await original.state(setup.card.id), at, .9);
+        await original.append({ schema: 1, id: "before-upgrade", cardId: setup.card.id, session: "old-session", at: at.toISOString(), kind: "grade", before: preview.before, after: { ...preview.before, revision: 1, card: preview.choices[3] }, rating: 3, retention: .9, library: "ts-fsrs@5.4.1" });
+        // 发布版本的配置没有 libraryPath、libraryMode 或 libraryId。
+        const settings = readSettings({ learning: { language: "en", dataFolder: "LinguaLeafData" }, review: { newLimit: 100, retention: .9 } });
+        // 重新创建宿主等同于升级后重启，旧 Vault 不提供外部目录 API。
+        const upgraded = new LeafHost(setup.host.plugin, settings.learning);
+        expect(upgraded.library).toBeUndefined();
+        expect(upgraded.port).toBe(upgraded.articlePort);
+        expect(upgraded.connectionError).toBeUndefined();
+        expect(settings.learning.libraryMode).toBeUndefined();
+        // 旧文章仍可索引，已有进度完整读取后继续评分。
+        const cards = await upgraded.scan();
+        expect(cards).toHaveLength(1);
+        // 评分应只追加事件，不修改来源正文。
+        const article = setup.files.get("Article.md");
+        // 服务使用旧库内端口，不引入目录外文件写入。
+        const service = new ReviewService(upgraded.port, "LinguaLeafData", undefined, () => new Date(Date.parse(preview.choices[3].due) + 60000));
+        expect(await service.store.state(setup.card.id)).toEqual(await original.state(setup.card.id));
+        // 复习队列仍使用当前用户的额度配置。
+        const queue = await service.queue(cards, "new-session", new Set(), settings.review);
+        expect(queue.selected?.item.card.id).toBe(setup.card.id);
+        await service.commit(service.grade(service.preview(setup.card.id, queue.selected!.state, .9), 3, "new-session"));
+        expect((await original.state(setup.card.id)).revision).toBe(2);
+        expect(setup.files.get("Article.md")).toBe(article);
+        expect([...setup.files.keys()].every(path => path === "Article.md" || path.startsWith("LinguaLeafData/"))).toBe(true);
+        expect([...setup.files.keys()].some(path => path.includes("catalog.json") || path.startsWith("LanguageLeafLibrary/"))).toBe(false);
     });
 });

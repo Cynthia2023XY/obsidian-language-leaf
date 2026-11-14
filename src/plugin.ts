@@ -1,3 +1,7 @@
+import type { FileSystemAdapter } from "obsidian";
+import { LibraryBindings, vaultLibraryDirectory } from "./lingualeaf/library-connection";
+import type { LibraryMode } from "./lingualeaf/library-connection";
+import * as path from "path";
 import { bindSourceSection } from "./lingualeaf/source-locator";
 import { MarkdownView, Notice, Platform, Plugin } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
@@ -67,11 +71,17 @@ export default class LinguaLeaf extends Plugin {
             this.lingualeaf = new LinguaLeafRuntime(this);
             if (this.lingualeaf.host.library) {
                 // 启动时验证学习库可读，失败绝不退回旧文章卡片。
+                try {
                 const catalog = await this.lingualeaf.host.library.catalog();
                 Object.assign(this.settings.review, catalog.review);
                 // 首次升级只固定已成功校验的连接身份，不更换数据源。
                 if (!this.settings.learning.libraryId) { this.settings.learning.libraryId = catalog.id; await this.saveData(this.settings); }
                 this.lingualeaf.host.settings.libraryId = catalog.id;
+                } catch (error) {
+                    // 新设备尚未下载主库或尚未配置外部路径时，仍保留设置页供恢复连接。
+                    this.lingualeaf.host.connectionError = error instanceof Error ? error.message : String(error);
+                    new Notice(`Language Leaf：${this.lingualeaf.host.connectionError}，可在学习库管理中重新连接`, 10000);
+                }
             }
             stage = "注册查词面板";
             this.logLifecycle(stage, "开始");
@@ -183,11 +193,19 @@ export default class LinguaLeaf extends Plugin {
         button.setAttribute("title", label);
     }
     /** 待重载的连接信息，普通设置保存不能把它覆盖回旧数据源 */
-    private pendingConnection?: { libraryPath: string; libraryId: string; vaultId: string };
+    private pendingConnection?: { libraryMode: LibraryMode; libraryPath: string; libraryId: string; vaultId: string };
     /** 保存已验证的数据源连接，运行中会话仍绑定旧库直到插件重载 */
-    async stageLibraryConnection(libraryPath: string, libraryId: string): Promise<void> {
+    async stageLibraryConnection(libraryPath: string, libraryId: string, mode: LibraryMode = "external"): Promise<void> {
         // 保留此前稳定的来源身份，首次连接才创建。
-        const connection = { libraryPath, libraryId, vaultId: this.settings.learning.vaultId || crypto.randomUUID() };
+        const vaultId = this.settings.learning.vaultId || crypto.randomUUID();
+        // 主库只保存相对目录，外部库的实际地址只保存在本机绑定文件。
+        const base = (this.app.vault.adapter as FileSystemAdapter).getBasePath();
+        // 验证主库确实位于当前库内，不能通过相对路径逃逸。
+        const relative = mode === "vault" ? path.relative(base, libraryPath).split(path.sep).join("/") : "";
+        if (mode === "vault") vaultLibraryDirectory(base, relative);
+        else await new LibraryBindings().save(vaultId, libraryId, libraryPath);
+        // 跨设备同步的设置不再含本机绝对地址。
+        const connection = { libraryMode: mode, libraryPath: relative, libraryId, vaultId };
         // 保留插件设置中尚未归入白名单的历史字段与凭据。
         const saved = await this.loadData() || {};
         await this.saveData({ ...saved, ...this.settings, learning: { ...saved.learning, ...this.settings.learning, ...connection } });
@@ -197,7 +215,7 @@ export default class LinguaLeaf extends Plugin {
     async saveSettings(settings: LeafPluginSettings): Promise<void> {
         // 先持久化，写入失败时不让运行配置与磁盘分叉。
         const next = readSettings(settings);
-        if (next.learning.libraryPath !== this.settings.learning.libraryPath) throw new Error("更换数据源需要先迁移并重新加载插件");
+        if (next.learning.libraryPath !== this.settings.learning.libraryPath || next.learning.libraryMode !== this.settings.learning.libraryMode) throw new Error("更换数据源需要先迁移并重新加载插件");
         if (this.lingualeaf.host.library) {
             // 只提交实际变动字段，避免一个窗口覆盖另一个窗口的新额度。
             const patch: Partial<typeof next.review> = {};

@@ -1,3 +1,4 @@
+import { resolveLibraryDirectory, UnavailableLibraryFiles } from "./library-connection";
 import { LegacyLearningAdapter } from "./legacy-adapter";
 import { MarkdownView, Notice, Plugin, TFile, normalizePath, parseYaml, Vault } from "obsidian";
 import type { FilePort, CaptureOperation } from "./storage";
@@ -25,6 +26,8 @@ export interface LeafSettings {
     dataFolder: string;
     /** 可选的独立学习库绝对路径，空值保留旧版读取 */
     libraryPath?: string;
+    /** 主库使用库内相对目录，其他库使用设备本机连接 */
+    libraryMode?: "vault" | "external";
     /** 已确认连接的学习库身份 */
     libraryId?: string;
     /** 当前笔记库的稳定来源身份 */
@@ -127,6 +130,8 @@ export class LeafHost {
     articlePort: VaultPort;
     /** 选择独立数据源后不再扫描或改写文章卡片 */
     library?: LearningLibrary;
+    /** 连接故障保留设置入口，绝不切回旧写回模式 */
+    connectionError?: string;
     /** 可重放的学习仓库 */
     store: LearningStore;
     /** 每个视图独立的学习会话 */
@@ -144,7 +149,16 @@ export class LeafHost {
         this.plugin = plugin;
         this.settings = { ...LEAF_DEFAULTS, ...settings };
         this.articlePort = new VaultPort(plugin);
-        this.library = settings.libraryPath ? new LearningLibrary(settings.libraryPath, settings.libraryId) : undefined;
+        try {
+            // 只在主库相对路径模式下需要宿主根目录；旧模式测试与行为不受影响。
+            const base = settings.libraryMode === "vault" ? (plugin.app.vault.adapter as { getBasePath?: () => string })?.getBasePath?.() || "" : "";
+            // 外部连接由本机绑定解析，另一台设备没有绑定时明确报错。
+            const directory = resolveLibraryDirectory(settings, base);
+            this.library = directory ? new LearningLibrary(directory, settings.libraryId) : undefined;
+        } catch (error) {
+            this.connectionError = error instanceof Error ? error.message : String(error);
+            this.library = new LearningLibrary(new UnavailableLibraryFiles(this.connectionError), settings.libraryId);
+        }
         this.port = this.library?.port || this.articlePort;
         this.store = new LearningStore(this.port, this.settings.dataFolder);
         this.legacy = new LegacyLearningAdapter(plugin, this.articlePort, () => this.settings);

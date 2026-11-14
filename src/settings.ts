@@ -48,7 +48,7 @@ export class SettingTab extends PluginSettingTab {
         container.empty();
         if (this.plugin.lingualeaf.host.library) {
             new Setting(container).setName("独立学习库").setHeading();
-            new Setting(container).setName("当前数据源").setDesc(this.plugin.settings.learning.libraryPath!);
+            new Setting(container).setName("当前数据源").setDesc(this.plugin.lingualeaf.host.library.port.directory || this.plugin.lingualeaf.host.connectionError || "此设备尚未连接主词库");
             container.createEl("p", { text: "收录、编辑、删除和复习只更新学习库；来源文章仅用于查看出处，不会回写。学习库规则由所有接入窗口共用。", cls: "setting-item-description" });
         }
         renderLibrarySettings(container, this.plugin);
