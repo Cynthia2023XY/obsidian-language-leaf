@@ -1,0 +1,60 @@
+docs/lingualeaf/独立学习库.md
+  s_7acb5e96268eef::t_b88f3441920b34 1-2
+docs/lingualeaf/发版兼容性评估.md
+  s_7acb5e96268eef::t_a3352ca31180ae 1-58
+src/lingualeaf/config.ts
+  s_7acb5e96268eef::t_8cf0c243a71296 39
+src/lingualeaf/library-settings.ts
+  s_7acb5e96268eef::t_0dfd10b1b18340 5-6,8,11-15,17,19-23,25,31,33-34,37-38,42-44,51-54,58,60,62,64-65
+  s_7acb5e96268eef::t_5f750cd0482427 1,32
+  s_7acb5e96268eef::t_30610c5cd84309 24
+src/lingualeaf/host.ts
+  s_7acb5e96268eef::t_0dfd10b1b18340 154
+  s_7acb5e96268eef::t_8cf0c243a71296 1,29-30,133-134,152-153,155-161
+src/lingualeaf/library-connection-test.ts
+  s_7acb5e96268eef::t_7d063f2e74ffc3 2,122,125-128
+  s_7acb5e96268eef::t_7b14ccf96b7f73 1,3-105,132-142
+  s_7acb5e96268eef::t_96131321f107f7 106-121,123-124,129-131
+scripts/relocate-library-into-vault.mjs
+  s_7acb5e96268eef::t_38738a6d9b16db 1-75
+docs/lingualeaf/vault-primary-migration-verification.json
+  s_7acb5e96268eef::t_e93334ac7e2704 1-16,50
+  s_7acb5e96268eef::t_82b775dcef1777 17-49
+src/lingualeaf/library-files.ts
+  s_7acb5e96268eef::t_0dfd10b1b18340 4,12-13,19-37,39-41,45,50-51,53-60,81,96,112-117
+src/lingualeaf/library-relocation.ts
+  s_7acb5e96268eef::t_5f750cd0482427 1-108
+README.zh-CN.md
+  s_7acb5e96268eef::t_b88f3441920b34 7-8
+src/lingualeaf/library-connection.ts
+  s_7acb5e96268eef::t_8cf0c243a71296 1-37,39-52,54-77
+  s_7acb5e96268eef::t_5f750cd0482427 38
+  s_7acb5e96268eef::t_30610c5cd84309 53
+src/settings.ts
+  s_7acb5e96268eef::t_0dfd10b1b18340 51
+docs/lingualeaf/主词库归属与跨设备使用.md
+  s_7acb5e96268eef::t_b88f3441920b34 1-80
+src/plugin.ts
+  s_7acb5e96268eef::t_5f750cd0482427 1,202
+  s_7acb5e96268eef::t_8cf0c243a71296 2-4,74,80-84,196,198,200-201,203-208,218
+src/lingualeaf/host-test.ts
+  s_7acb5e96268eef::t_30610c5cd84309 257
+  s_7acb5e96268eef::t_0b5b4b994489b4 1-2,228-256,258-266
+  s_7acb5e96268eef::t_9484f14322b2af 267-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "de272af465337fc65b394da927e6551ae7ac9d0f",
+  "prompts": {},
+  "sessions": {
+    "s_7acb5e96268eef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d362-58f7-7143-a488-276884a5c626",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "dingxinyi.2 <dingxinyi.2@jd.com>"
+    }
+  }
+}
