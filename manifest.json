@@ -1,7 +1,7 @@
 {
     "id": "language-leaf",
     "name": "Language Leaf",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "minAppVersion": "1.14.4",
     "description": "Read native Markdown, collect vocabulary in context, and review with built-in FSRS flashcards.",
     "author": "Cynthia Ding",
