@@ -81,6 +81,36 @@ export function sourceBlocks(source: string): SourceBlock[] {
     }
     return blocks;
 }
+/** 编辑器选区和当时的笔记快照，偏移包含原始 Markdown 字符。 */
+export interface EditorSelection {
+    source: string;
+    from: number;
+    to: number;
+}
+
+/** 按编辑器行号绑定正文块，跨块或无法确认时由调用方保留选中文字。 */
+export function locateEditorContext(selection: EditorSelection, selected: string, outline: string, options: Partial<ContextOptions>): ArticleContext | undefined {
+    const { source, from, to } = selection;
+    if (from < 0 || to > source.length || from >= to) return undefined;
+    const raw = source.slice(from, to);
+    if (raw.trim() !== selected) return undefined;
+    const firstLine = source.slice(0, from + raw.length - raw.trimStart().length).split("\n").length - 1;
+    const lastLine = source.slice(0, from + raw.trimEnd().length).split("\n").length - 1;
+    const blocks = sourceBlocks(source);
+    const current = blocks.find(block => block.from <= firstLine && block.to >= lastLine);
+    const visible = matchText(visibleMarkdown(selected));
+    if (!current || !visible || !matchText(current.text).includes(visible)) return undefined;
+
+    // 重复段落有准确出处，但不能交给按文本匹配的短句扩展挑选。
+    if (current.kind === "paragraph" && blocks.filter(block => block.kind === "paragraph" && matchText(block.text) === matchText(current.text)).length === 1) {
+        try {
+            return extractContext(source, selected, outline, current.text, options);
+        } catch {
+            // 已按位置确认段落，保留它和自己的译文。
+        }
+    }
+    return { sentence: current.text, translation: current.translation, outline, anchor: current.text };
+}
 /** 渲染区域的章节信息按查询时读取，缓存落后时必须由文字校验拒绝 */
 const sections = new WeakMap<HTMLElement, () => { lineStart: number; lineEnd: number } | null>();
 /** 宿主后处理器只建立临时关联，不给笔记添加标记 */

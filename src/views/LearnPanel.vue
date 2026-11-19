@@ -141,8 +141,15 @@ async function submit(): Promise<void> {
     if (!model.value.expression?.trim() || !model.value.meaning?.trim()) { new Notice("请填写词句和释义"); return; }
     submitLoading.value = true; successing.value = false; failing.value = false;
     try {
-        await plugin.lingualeaf.saveCapture(leafCapture.value, JSON.parse(JSON.stringify(model.value)), leafOutline.value);
-        captureCount.value = leafCapture.value.captureCount;
+        /** 冻结当前表单，避免保存完成后覆盖新查询或刚输入的修改。 */
+        const request = leafCapture.value;
+        /** 提交时的输入用于判断用户是否在等待期间继续编辑。 */
+        const submitted = JSON.stringify(model.value);
+        /** 保存后载入旧卡合并出的完整例句。 */
+        const saved = await plugin.lingualeaf.saveCapture(request, JSON.parse(submitted), leafOutline.value);
+        if (leafCapture.value !== request) return;
+        if (JSON.stringify(model.value) === submitted) model.value = JSON.parse(JSON.stringify(saved));
+        captureCount.value = request.captureCount;
         successing.value = true;
     } catch (error) { failing.value = true; new Notice(error instanceof Error ? error.message : String(error)); }
     finally {

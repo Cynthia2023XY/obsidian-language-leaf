@@ -39,13 +39,48 @@ function fixture(layout: "focus" | "context" = "focus") {
         create: async (path: string, text: string) => { if (fail) throw new Error("disk full"); if (files.has(path)) throw new Error("exists"); files.set(path, text); },
     };
     const cards = [{ path: "article.md", card: { id: "card-test", expressionId: "expression-test", owner: "builtin", text: "on the threshold", meaning: "在门槛处", sentence: "A traveler paused.", translation: "旅人停下了。", notes: "笔记", outline: "", kind: "phrase", language: "en", anchor: "" } }];
-    const plugin: any = { app: { workspace: { openLinkText: vi.fn().mockResolvedValue(undefined) } }, settings: { learning: { dataFolder: "Data" }, review: { newLimit: 10, retention: .9, layout }, review_auto_pron: false }, lingualeaf: { host: { port, settings: { dataFolder: "Data" }, scan: async () => cards } }, playReviewCardWord: vi.fn() };
+    const plugin: any = { app: { workspace: { openLinkText: vi.fn().mockResolvedValue(undefined) } }, settings: { learning: { dataFolder: "Data" }, review: { newLimit: 10, retention: .9, layout }, review_auto_pron: false }, lingualeaf: { host: { port, settings: { dataFolder: "Data" }, openSource: vi.fn().mockResolvedValue(undefined), scan: async () => cards } }, playReviewCardWord: vi.fn() };
     const modal = new ReviewModal(plugin); plugin.reviewModal = modal;
     return { modal, plugin, files, cards, store: new ReviewStore(port, "Data"), fail: (value: boolean) => { fail = value; } };
 }
 async function settle(): Promise<void> { await new Promise(resolve => setTimeout(resolve, 25)); }
 function button(modal: ReviewModal, text: string): HTMLButtonElement { return Array.from(modal.contentEl.querySelectorAll("button")).find(element => element.textContent?.includes(text))!; }
 describe("真实复习弹窗 DOM 行为", () => {
+    it.each(["focus", "context"] as const)("在 %s 布局揭晓答案后直接显示其他文章的同词例句", async layout => {
+        const setup = fixture(layout);
+        const current = setup.cards[0];
+        const related = { path: "stories/another.md", card: { ...current.card, id: "related-card", owner: "spaced-repetition",
+            sentence: "She waited on the threshold.", translation: "她在门槛处等候。", meaning: "门口" } };
+        const sameArticle = { path: current.path, card: { ...related.card, id: "same-article", sentence: "Same article." } };
+        const otherLanguage = { path: "other-language.md", card: { ...related.card, id: "other-language", language: "fr", sentence: "Other language." } };
+        const sameSource = { ...related, card: { ...related.card, id: "same-source",
+            sentence: "He stepped over the threshold.", translation: "", meaning: current.card.meaning } };
+        setup.cards.push(related, sameSource, sameArticle, otherLanguage);
+        setup.modal.open();
+        try {
+            await settle();
+            expect(setup.modal.contentEl.textContent).not.toContain("其他文章中的例句");
+            button(setup.modal, "显示答案").click();
+            const section = setup.modal.contentEl.querySelector(".ll-related-examples")!;
+            expect(section.closest("details")).toBeNull();
+            expect(section.querySelectorAll(".ll-related-article")).toHaveLength(1);
+            expect(Array.from(section.querySelectorAll(".ll-related-original"), el => el.textContent)).toEqual([
+                related.card.sentence, sameSource.card.sentence,
+            ]);
+            expect(section.querySelectorAll(".ll-related-translation")).toHaveLength(1);
+            expect(section.textContent).toContain(related.card.translation);
+            expect(section.querySelector(".ll-related-meaning")?.textContent).toBe("此处义 · 门口");
+            expect(section.querySelectorAll(".ll-related-meaning")).toHaveLength(1);
+            expect(section.textContent).not.toMatch(/Same article|Other language/);
+            const links = section.querySelectorAll("button");
+            expect(links).toHaveLength(1);
+            expect(links[0].textContent).toBe("another");
+            expect(links[0].title).toBe("stories/another.md");
+            expect(section.textContent?.indexOf(sameSource.card.sentence)).toBeLessThan(section.textContent!.indexOf("出处"));
+            links[0].click();
+            expect(setup.plugin.lingualeaf.host.openSource).toHaveBeenCalledWith(related);
+        } finally { setup.modal.close(); }
+    });
     it("剩余数量包含当前新卡，并随评分和撤销更新", async () => {
         // 新卡按今日额度计入剩余数量，当前卡也包含在内。
         const setup = fixture(); setup.modal.open(); await settle();

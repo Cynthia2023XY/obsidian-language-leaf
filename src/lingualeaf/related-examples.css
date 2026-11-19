@@ -1,0 +1,77 @@
+.ll-related-examples {
+    margin-block: 16px;
+    padding-block-start: 14px;
+    border-block-start: 1px solid var(--background-modifier-border);
+    overflow-wrap: anywhere;
+}
+
+.ll-related-examples .ll-related-heading {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.ll-related-article + .ll-related-article {
+    border-block-start: 1px solid var(--background-modifier-border);
+    margin-block-start: 12px;
+    padding-block-start: 12px;
+}
+
+.ll-related-example + .ll-related-example,
+.ll-related-meaning + .ll-related-example {
+    margin-block-start: 10px;
+}
+
+.ll-related-examples p {
+    white-space: pre-wrap;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.ll-related-original {
+    font-size: 15px;
+    color: var(--text-normal);
+}
+
+.ll-related-translation,
+.ll-related-meaning {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.ll-related-examples .ll-related-translation,
+.ll-related-examples .ll-related-meaning {
+    margin-block-start: 4px;
+}
+
+.ll-related-source {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-block-start: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.ll-related-source > span { flex-shrink: 0; }
+
+.ll-related-source button.ll-related-link {
+    display: inline;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    color: var(--text-accent);
+    font: inherit;
+    line-height: 1.5;
+    text-align: start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.ll-related-link:hover,
+.ll-related-link:focus-visible { text-decoration: underline; }

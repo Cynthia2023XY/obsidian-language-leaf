@@ -22,6 +22,7 @@ import type { IndexedCard } from "../lingualeaf/host";
 import type PluginType from "../plugin";
 import { action } from "../lingualeaf/ui";
 import { cardToForm } from "../lingualeaf/panel-model";
+import { indexRelatedCards, relatedExamples } from "../lingualeaf/related-examples";
 import { usePanelTheme } from "../lingualeaf/panel-theme";
 import PanelIcon from "../component/PanelIcon.vue";
 import NoteMarkdown from "../component/NoteMarkdown.vue";
@@ -57,6 +58,8 @@ const themeConfig = usePanelTheme();
 const theme = computed(() => plugin.store.dark ? darkTheme : null);
 /** 已加载的随文词句 */
 const data = ref<Row[]>([]);
+/** 关联例句从整个词库查找，不受分页和筛选影响。 */
+const relatedIndex = computed(() => indexRelatedCards(data.value.map(row => row.native)));
 /** 扫描过程中的加载提示 */
 const loading = ref(true);
 /** 限定最后一次扫描才能更新页面 */
@@ -153,11 +156,33 @@ function rowAction(key: string, row: Row): void {
 }
 /** 表达与来源组成信息层级，弱化标签与日期，累计次数可排序 */
 const columns = computed((): DataTableColumns<Row> => [
-    { type: "expand", width: 32, expandable: (row: Row) => !!(row.native.card.sentence || row.native.card.notes || row.native.card.outline), renderExpand: (row: Row) => {
+    { type: "expand", width: 32, expandable: (row: Row) => !!(row.native.card.sentence || row.native.card.notes || row.native.card.outline || relatedExamples(relatedIndex.value, row.native).length), renderExpand: (row: Row) => {
         // 展开区保留多笔记、多例句、译文及概览，不丢失原有信息。
         const form = cardToForm(row.native.card, row.native.path);
+        /** 同词不同来源各自显示释义、译文和出处。 */
+        const related = relatedExamples(relatedIndex.value, row.native);
         return h("div", { class: "ll-word-details" }, [
             ...form.sentences.map(sentence => h("div", { class: "ll-word-example" }, [h("p", sentence.text), h("p", { class: "ll-muted" }, sentence.trans), h("p", { class: "ll-muted ll-small" }, sentence.origin)])),
+            related.length ? h("section", { class: "ll-related-examples", "aria-label": "其他文章中的例句" }, [
+                h("h3", { class: "ll-related-heading" }, "其他文章中的例句"),
+                ...related.map(({ item, title, sourceLabel, contexts }) => h("div", { class: "ll-related-article", key: item.card.id }, [
+                    ...contexts.flatMap(({ examples, meaning }) => [
+                        ...examples.map(example => h("div", { class: "ll-related-example" }, [
+                            h("p", { class: "ll-related-original" }, example.text),
+                            example.trans.trim() ? h("p", { class: "ll-related-translation" }, example.trans) : null,
+                        ])),
+                        meaning ? h("p", { class: "ll-related-meaning" }, `此处义 · ${meaning}`) : null,
+                    ]),
+                    h("div", { class: "ll-related-source" }, [
+                        h("span", "出处"),
+                        h("button", {
+                            type: "button", class: "ll-related-link", title: sourceLabel,
+                            "aria-label": `打开来源文章：${sourceLabel}`,
+                            onClick: () => { void plugin.lingualeaf.host.openSource(item).catch(error => new Notice(String(error))); },
+                        }, title),
+                    ]),
+                ])),
+            ]) : null,
             ...form.notes.map(note => h(NoteMarkdown, { app: plugin.app, text: note, sourcePath: row.native.path })), row.native.card.outline ? h("p", `文章概览：${row.native.card.outline}`) : null,
         ]);
     } },

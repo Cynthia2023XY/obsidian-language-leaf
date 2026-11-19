@@ -19,14 +19,13 @@
 .ll-review-sentence { font-size: 17px; line-height: 1.65; margin: 8px 0 20px; }
 .ll-review-answer details { margin: 12px 0; color: var(--text-muted); }
 .ll-review-answer details p { color: var(--text-normal); line-height: 1.65; white-space: pre-wrap; }
-.ll-review-footer { border-top: 1px solid var(--background-modifier-border); padding: 18px 0 8px; margin-top: 10px; }
+.ll-review-footer { border-top: 1px solid var(--background-modifier-border); padding: 18px 0 8px; margin-top: 10px; flex-shrink: 0; }
 .ll-review-reveal { width: 100%; height: 48px; }
 .ll-review-grades { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .ll-review-grades button { height: 62px; display: flex; flex-direction: column; gap: 6px; padding: 8px 4px; }
 .ll-review-grades small { opacity: .72; font-size: 12px; }
 .ll-review-modal textarea { display: block; width: 100%; min-height: 64px; margin: 8px 0 14px; }
 .ll-review-error { color: var(--text-error); }
-.ll-migration-row { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--background-modifier-border); align-items: baseline; }
 @media (max-width: 520px) { .ll-review-modal .ll-review-header { font-size: 20px; gap: 4px 12px; } .ll-review-body { padding: 24px 0 16px; } .ll-review-grades { gap: 5px; } .ll-review-grades button { font-size: 13px; } }
 
 /* 语境对照：原句先展示，释义和译文在揭晓后展示；窄窗口自动纵排。 */

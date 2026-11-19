@@ -1,5 +1,4 @@
-import { Modal, Notice, TFile } from "obsidian";
-import type LinguaLeaf from "../../plugin";
+import { TFile } from "obsidian";
 import type { LeafHost, IndexedCard } from "../host";
 import type { LeafCard } from "../domain";
 import { newId } from "../domain";
@@ -70,54 +69,5 @@ export class MigrationService {
         journal.phase = "rolled-back";
         await this.host.port.write(this.journalPath(journal.id), JSON.stringify(journal, null, 2));
         await this.host.scan();
-    }
-}
-export class MigrationModal extends Modal {
-    private service: MigrationService;
-    private selected = new Set<string>();
-    private acknowledged = false;
-    private reset = false;
-    private busy = false;
-    constructor(private plugin: LinguaLeaf) { super(plugin.app); this.service = new MigrationService(plugin.lingualeaf.host); }
-    onOpen(): void { this.modalEl.addClass("ll-review-modal"); this.titleEl.setText("迁移到内置复习 · 预览"); void this.render().catch(error => new Notice(String(error))); }
-    private async render(): Promise<void> {
-        const cards = (await this.plugin.lingualeaf.host.scan()).filter(item => item.path && item.card.owner === "spaced-repetition");
-        this.contentEl.empty();
-        this.contentEl.createEl("p", { text: "只处理勾选的卡片。先保存原文备份，再移除 SR 问答分隔符与调度注释，由内置 FSRS 接管。旧算法进度只能近似转换；不支持的格式可选择重新开始。" });
-        const reset = this.contentEl.createEl("label");
-        const resetInput = reset.createEl("input", { type: "checkbox" }); resetInput.checked = this.reset;
-        reset.appendText(" 重新开始，不推算旧进度");
-        resetInput.onchange = () => { this.reset = resetInput.checked; void this.render().catch(error => new Notice(String(error))); };
-        for (const item of cards) {
-            const source = await this.plugin.lingualeaf.host.port.read(item.path);
-            const located = parseCards(source, this.plugin.settings.learning.separator).find(value => value.card.id === item.card.id);
-            let description: string; let valid = true;
-            try { description = importSchedule(located.schedule, this.reset).description; } catch (error) { description = String(error); valid = false; this.selected.delete(item.card.id); }
-            const row = this.contentEl.createEl("label", { cls: "ll-migration-row" });
-            const checkbox = row.createEl("input", { type: "checkbox" }); checkbox.checked = this.selected.has(item.card.id); checkbox.disabled = !valid;
-            checkbox.onchange = () => { if (checkbox.checked) this.selected.add(item.card.id); else this.selected.delete(item.card.id); };
-            row.createSpan({ text: `${item.card.text} · ${item.path}\n${description}` });
-        }
-        const ack = this.contentEl.createEl("label"); const check = ack.createEl("input", { type: "checkbox" }); check.checked = this.acknowledged;
-        ack.appendText(" 我已关闭 Spaced Repetition 复习窗口，确认迁移勾选卡片"); check.onchange = () => { this.acknowledged = check.checked; };
-        const action = this.contentEl.createEl("button", { text: "迁移勾选卡片", cls: "mod-cta" });
-        action.onclick = () => { void (async () => {
-            if (this.busy) return;
-            if (!this.acknowledged || !this.selected.size) { new Notice("请先勾选卡片并确认已关闭 SR 复习窗口"); return; }
-            if (Array.from(document.querySelectorAll<HTMLElement>(".sr-modal-content,.sr-card-container")).some(element => element.offsetParent !== null)) { new Notice("请先关闭 SR 复习窗口"); return; }
-            this.busy = true; action.disabled = true;
-            try { for (const item of cards.filter(item => this.selected.has(item.card.id))) await this.service.migrate(item, this.reset); this.selected.clear(); new Notice("迁移完成，使用“开始词句复习”命令复习"); await this.render(); }
-            catch (error) { new Notice(String(error)); await this.render(); }
-            finally { this.busy = false; }
-        })(); };
-        const journals = await this.service.journals();
-        if (journals.length) this.contentEl.createEl("h3", { text: "迁移记录与恢复" });
-        for (const journal of journals.filter(item => item.phase !== "rolled-back")) {
-            const row = this.contentEl.createDiv({ cls: "ll-migration-row" }); row.createSpan({ text: `${journal.path} · ${journal.cardId} · ${journal.phase === "prepared" ? "待恢复" : "已完成"}` });
-            for (const [label, task] of [["恢复迁移", () => this.service.resume(journal)], ["回退（尚未复习时）", () => this.service.rollback(journal)]] as const) {
-                if (label === "恢复迁移" && journal.phase !== "prepared") continue;
-                const button = row.createEl("button", { text: label }); button.onclick = () => { if (this.busy) return; this.busy = true; void task().then(() => this.render()).catch(error => new Notice(String(error))).finally(() => { this.busy = false; }); };
-            }
-        }
     }
 }

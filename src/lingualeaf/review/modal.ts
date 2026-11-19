@@ -10,6 +10,7 @@ import { GRADES, interval, reviewKey } from "./engine";
 import type { Prepared, ReviewEvent, ReviewState } from "./engine";
 import { ReviewService } from "./service";
 import { renderNoteMarkdown } from "../note-markdown";
+import { indexRelatedCards, relatedExamples } from "../related-examples";
 
 /** The host owns the close button; answer content scrolls independently of grading. */
 export class ReviewModal extends Modal {
@@ -27,6 +28,8 @@ export class ReviewModal extends Modal {
     private busy = false;
     private closed = false;
     private current?: IndexedCard;
+    /** 关联例句来自完整词库，包括当前队列之外的文章。 */
+    private relatedIndex = indexRelatedCards([]);
     private prepared?: Prepared;
     private pending?: ReviewEvent;
     private last?: ReviewEvent;
@@ -109,10 +112,12 @@ export class ReviewModal extends Modal {
         }
         if (this.timer) window.clearTimeout(this.timer);
         const blocked = new Set((this.plugin.lingualeaf.host.library ? [] : await new MigrationService(this.plugin.lingualeaf.host).journals()).filter(journal => journal.phase !== "done").map(journal => journal.cardId));
-        const cards = (await this.plugin.lingualeaf.host.scan()).filter(item => (this.plugin.lingualeaf.host.library || item.path) && item.card.owner === "builtin" && !blocked.has(item.card.id) && (!this.source || (item.path === this.source && (!this.plugin.lingualeaf.host.library || item.sources?.some(source => source.vaultId === this.plugin.settings.learning.vaultId && source.path === this.source)))));
+        const allCards = await this.plugin.lingualeaf.host.scan();
+        const cards = allCards.filter(item => (this.plugin.lingualeaf.host.library || item.path) && item.card.owner === "builtin" && !blocked.has(item.card.id) && (!this.source || (item.path === this.source && (!this.plugin.lingualeaf.host.library || item.sources?.some(source => source.vaultId === this.plugin.settings.learning.vaultId && source.path === this.source)))));
         // 队列、额度、会话统计由可复用服务统一计算。
         const { rows, now, due, fresh, eligible, selected, availableNew, reviewed, last } = await this.service.queue(cards, this.session, this.skipped, this.plugin.settings.review);
         if (this.closed || token !== this.turn) return;
+        this.relatedIndex = indexRelatedCards(allCards);
         this.last = last;
         this.busy = false; this.revealed = false; this.pending = undefined;
         this.contentEl.empty(); this.current = selected?.item; this.prepared = undefined;
@@ -124,7 +129,7 @@ export class ReviewModal extends Modal {
             // 等待和完成状态占据正文空间，避免弹窗在复习结束时收缩。
             const state = this.contentEl.createDiv({ cls: "ll-review-state", attr: { role: "status" } });
             state.createEl("h2", { text: next ? "休息一下，等待下次回忆" : "本轮复习完成" });
-            const message = state.createEl("p", { text: !cards.length ? "还没有内置复习卡片。收录词句后即可开始，已有 SR 卡片可通过迁移命令导入。" : "可以关闭窗口，进度已保存。" });
+            const message = state.createEl("p", { text: !cards.length ? "还没有内置复习卡片。收录词句后即可开始。" : "可以关闭窗口，进度已保存。" });
             if (next) {
                 const tick = (): void => {
                     if (this.closed || token !== this.turn) return;
@@ -195,6 +200,7 @@ export class ReviewModal extends Modal {
         const supplemental = this.layout === "context" ? this.contentEl.querySelector<HTMLElement>(".ll-review-body") : answer;
         supplemental.querySelector(".ll-review-supplemental")?.remove();
         const extras = supplemental.createDiv({ cls: "ll-review-supplemental" });
+        this.renderRelatedExamples(extras, this.current);
         for (const [label, text] of [["译文", this.layout === "context" ? "" : card.translation], ["笔记", card.notes], ["概览", card.outline]]) if (text) {
             const details = extras.createEl("details");
             details.open = label === "笔记";
@@ -211,6 +217,31 @@ export class ReviewModal extends Modal {
             button.setAttribute("aria-keyshortcuts", grade.key);
         }
         if (this.layout === "context") this.cancelRevealMotion = animateReveal(body, previousHeight, [answer, extras]);
+    }
+    /** 答案揭晓后按文章显示例句，出处紧跟对应语境。 */
+    private renderRelatedExamples(parent: HTMLElement, current: IndexedCard): void {
+        const related = relatedExamples(this.relatedIndex, current);
+        if (!related.length) return;
+        const section = parent.createEl("section", { cls: "ll-related-examples", attr: { "aria-label": "其他文章中的例句" } });
+        section.createEl("h3", { text: "其他文章中的例句", cls: "ll-related-heading" });
+        for (const { item, title, sourceLabel, contexts } of related) {
+            const article = section.createDiv({ cls: "ll-related-article" });
+            for (const { examples, meaning } of contexts) {
+                for (const entry of examples) {
+                    const example = article.createDiv({ cls: "ll-related-example" });
+                    example.createEl("p", { text: entry.text, cls: "ll-related-original" });
+                    if (entry.trans.trim()) example.createEl("p", { text: entry.trans, cls: "ll-related-translation" });
+                }
+                if (meaning) article.createEl("p", { text: `此处义 · ${meaning}`, cls: "ll-related-meaning" });
+            }
+            const source = article.createDiv({ cls: "ll-related-source" });
+            source.createSpan({ text: "出处" });
+            const link = this.button(source, title, () => {
+                void this.plugin.lingualeaf.host.openSource(item).catch(error => new Notice(String(error)));
+            }, "ll-related-link");
+            link.setAttribute("title", sourceLabel);
+            link.setAttribute("aria-label", `打开来源文章：${sourceLabel}`);
+        }
     }
     private async grade(rating: number): Promise<void> {
         if (!this.current || !this.prepared || !this.revealed || this.busy || this.pending) return;

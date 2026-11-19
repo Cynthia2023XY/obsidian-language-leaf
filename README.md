@@ -10,7 +10,8 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 
 - Enable learning mode on a Markdown note. Hold Shift while selecting text, or configure Alt/Option. Three-finger selection can query when the modifier is released. Alternatively, enable automatic selection lookup or click the selection's lookup button.
 - Edit the new-word form and save with Command+Enter on macOS or Ctrl+Enter on Windows/Linux. The shortcut applies inside the new-word panel.
-- New cards always use the built-in FSRS engine. Legacy SR cards can be imported through the migration preview, which keeps backups.
+- The selection lookup command works in both editing and reading views.
+- New cards always use the built-in FSRS engine.
 - Built-in FSRS review supports recall and context layouts, audio, daily new-card limits, undo, pause/resume, and source-note navigation. Space reveals the answer; arrow keys rate it after reveal.
 - Switching a note to editing exits learning mode.
 
@@ -32,7 +33,7 @@ In built-in review, the first example is the main context. Context layout shows 
 
 Card content stays in Markdown. Built-in review state is stored as append-only events under `LinguaLeafData/review/` by default. Synchronize the entire data folder and resolve sync conflicts before continuing review.
 
-SR migration is optional and creates backups. SM-2 schedules are approximations; rollback is supported before the first built-in rating. Migrating the same card repeatedly is not supported. Existing notes, vocabulary, and settings are not automatically migrated from the old Language Learner plugin.
+Existing notes, vocabulary, and settings are not automatically migrated from the old Language Learner plugin.
 
 ## Privacy and attribution
 

@@ -4,6 +4,7 @@
 @import "./lingualeaf/panels.css";
 @import "./lingualeaf/card-layout.css";
 @import "./lingualeaf/review/review.css";
+@import "./lingualeaf/related-examples.css";
 /* 笔记块按 Markdown 排版，段内保留换行，代码块独立横向滚动。 */
 .ll-note-markdown { color: var(--text-normal); white-space: normal; overflow-wrap: anywhere; min-width: 0; }
 /* 普通换行只走行高，空一行形成的段落间距固定为一行，覆盖主题默认段距。 */

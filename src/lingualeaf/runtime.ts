@@ -1,6 +1,8 @@
-import { MarkdownView, Notice, TFile } from "obsidian";
+import { MarkdownView, Menu, Notice, TFile } from "obsidian";
+import type { Editor } from "obsidian";
 import type LanguageLearner from "../plugin";
 import { LeafHost } from "./host";
+import type { IndexedCard } from "./host";
 import { report } from "./ui";
 import { newId, expressionKey } from "./domain";
 import type { ArticleContext, LeafCard } from "./domain";
@@ -8,11 +10,12 @@ import type { ExpressionInfo } from "./panel-model";
 import { DATA_PANEL_VIEW } from "../views/DataPanelView";
 import { SEARCH_PANEL_VIEW } from "../views/SearchPanelView";
 import { LEARN_PANEL_VIEW } from "../views/LearnPanelView";
-import { cardToForm, formToCard, withCaptureContext } from "./panel-model";
+import { cardToForm, formToCard, mergeCapturedSentences, withCaptureContext } from "./panel-model";
 import { resetShiftSelection, extendShiftSelection } from "./selection";
 import type { TextCaret } from "./selection";
 import { watchReadingMode } from "./reading-mode";
-import { locateReadingContext } from "./source-locator";
+import { locateEditorContext, locateReadingContext } from "./source-locator";
+import type { EditorSelection } from "./source-locator";
 import type { ReadingBlock } from "./reading-block";
 import { installSelectionQuery, readingSelection } from "./selection-query";
 
@@ -36,6 +39,18 @@ export interface PanelCapture {
     captureCount: number;
     /** 会话有效性检查 */
     valid: () => boolean;
+}
+
+/** 在切换焦点前记录选中文字和真实编辑器位置。 */
+function editorLookup(editor: Editor): { text: string; selection: EditorSelection } | undefined {
+    const text = editor.getSelection().trim();
+    if (!text || text.length > 500) return undefined;
+    const selection = {
+        source: editor.getValue(),
+        from: editor.posToOffset(editor.getCursor("from")),
+        to: editor.posToOffset(editor.getCursor("to")),
+    };
+    return { text, selection };
 }
 
 /** 原生阅读、三个学习面板和随文 SR 闪卡的运行时 */
@@ -68,12 +83,48 @@ export class LinguaLeafRuntime {
         this.plugin.registerEvent(this.plugin.app.vault.on("modify", file => this.host.invalidate(file.path)));
         this.plugin.registerEvent(this.plugin.app.vault.on("delete", () => this.host.prune()));
         this.plugin.registerEvent(this.plugin.app.workspace.on("editor-menu", (menu, editor, view) => {
-            if (!(view instanceof MarkdownView) || !this.host.sessions.has(view) || !editor.getSelection().trim()) return;
-            menu.addItem(item => item.setTitle("查询选区").setIcon("sprout").onClick(() => void this.queryActive(view).catch(report)));
+            if (!(view instanceof MarkdownView) || view.getMode() !== "source") return;
+            const selected = editorLookup(editor);
+            if (selected) this.addLookupItem(menu, view, selected.text, { editor: selected.selection });
         }));
+        const previewDocuments = new WeakSet<Document>();
+        const watchPreviewMenu = (doc: Document) => {
+            if (previewDocuments.has(doc)) return;
+            previewDocuments.add(doc);
+            this.plugin.registerDomEvent(doc, "contextmenu", this.previewLookupMenu);
+        };
+        watchPreviewMenu(document);
+        this.plugin.registerEvent(this.plugin.app.workspace.on("window-open", (_workspaceWindow, win) => watchPreviewMenu(win.document)));
         this.plugin.app.workspace.onLayoutReady(() => {
-            if (this.alive) void this.host.recover().then(failures => { if (failures.length && this.alive) new Notice(`Language Leaf 有 ${failures.length} 个待写回操作，下次加载时会自动重试`, 8000); }).catch(report);
+            if (!this.alive) return;
+            for (const leaf of this.plugin.app.workspace.getLeavesOfType("markdown")) watchPreviewMenu(leaf.view.containerEl.ownerDocument);
+            void this.host.recover().then(failures => { if (failures.length && this.alive) new Notice(`Language Leaf 有 ${failures.length} 个待写回操作，下次加载时会自动重试`, 8000); }).catch(report);
         });
+    }
+    /** 阅读视图没有编辑器菜单事件，给正文选区提供 Obsidian 菜单。 */
+    private previewLookupMenu = (event: MouseEvent): void => {
+        if (event.defaultPrevented) return;
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest?.(".markdown-preview-view") || target.closest("a, button, input, textarea")) return;
+        const leaf = this.plugin.app.workspace.getLeavesOfType("markdown").find(leaf =>
+            leaf.view instanceof MarkdownView && leaf.view.getMode() === "preview" && leaf.view.contentEl.contains(target));
+        if (!(leaf?.view instanceof MarkdownView) || !leaf.view.file) return;
+        const selected = readingSelection(leaf.view.contentEl);
+        if (!selected) return;
+        const copiedText = selected.range.toString();
+        const menu = Menu.forEvent(event);
+        this.addLookupItem(menu, leaf.view, selected.text, { block: selected.block });
+        menu.addItem(item => item.setTitle("复制").setIcon("copy").setSection("clipboard").onClick(() => {
+            void target.ownerDocument.defaultView?.navigator.clipboard.writeText(copiedText).catch(report);
+        }));
+    };
+    /** 菜单打开时冻结选区，点击菜单后不依赖浏览器焦点或残留高亮。 */
+    private addLookupItem(menu: Menu, view: MarkdownView, text: string, origin: { block: ReadingBlock } | { editor: EditorSelection }): void {
+        const file = view.file;
+        if (!file) return;
+        menu.addItem(item => item.setTitle("Language Leaf 查词").setIcon("sprout").setSection("action").onClick(() => {
+            if (view.file === file) void this.query(view, text, origin).catch(report);
+        }));
     }
     /** 注册统一错误处理，命令失败不会成为未处理异常 */
     private command(id: string, name: string, callback: () => Promise<void> | void): void {
@@ -158,49 +209,61 @@ export class LinguaLeafRuntime {
         this.plugin.refreshReadingActions();
         new Notice(this.host.settings.autoQuerySelection ? "Language Leaf 学习模式已开启：划选词句后自动查词；切换到编辑视图或关闭文档时退出" : `Language Leaf 学习模式已开启：按住 ${this.host.settings.modifier.replace("Key", "")} 划词，或选中文字后点“查词”；切换到编辑视图或关闭文档时退出`);
     }
-    /** 读取所属窗口选区，拒绝跨段、翻译、代码和插件浮层 */
+    /** 在编辑或阅读视图查询当前选区，学习会话可使用自己冻结的选区。 */
     async queryActive(view = this.active()): Promise<void> {
         this.host.prune();
+        if (view.getMode() === "source") {
+            const selected = editorLookup(view.editor);
+            if (!selected) throw new Error("请先选择 1—500 个字符的词句");
+            await this.query(view, selected.text, { editor: selected.selection });
+            return;
+        }
         const session = this.host.sessions.get(view);
-        if (!session) throw new Error("请先开启当前文档学习模式");
-        const selected = session.selection ? session.selection() : readingSelection(view.contentEl);
+        const selected = session?.selection ? session.selection() : readingSelection(view.contentEl);
         if (!selected) throw new Error("请在同一个段落、标题或列表文本块内选择 1—500 个字符，跨块、代码、翻译和嵌入内容暂不支持");
-        await this.query(view, selected.text, selected.block.text, selected.block);
+        await this.query(view, selected.text, { block: selected.block });
     }
     /** 把来源和上下文冻结到表单，并检查查询结束时会话仍有效 */
-    private async query(view: MarkdownView, selected: string, paragraph?: string, block?: ReadingBlock): Promise<void> {
+    private async query(view: MarkdownView, selected: string, origin: { block: ReadingBlock } | { editor: EditorSelection }): Promise<void> {
         this.host.prune();
         // 查询不允许后台叶子接收其他窗口的选区。
         const session = this.host.sessions.get(view);
-        if (!session || !selected.trim() || selected.trim().length > 500) throw new Error("请在有效学习会话中选择 1—500 个字符");
+        const file = view.file;
+        if (!file || !selected.trim() || selected.trim().length > 500) throw new Error("请在 Markdown 文章中选择 1—500 个字符");
+        const mode = view.getMode();
         const sequence = (this.queries.get(view) || 0) + 1;
         this.queries.set(view, sequence);
         // 冻结当前渲染快照，重新渲染后旧查询不能写入新表单。
+        const block = "block" in origin ? origin.block : undefined;
         const rendered = block?.element.textContent;
         // 默认可见快照独立于来源定位结果，定位失败仍允许查询。
-        let context: ArticleContext = { location: "snapshot", sentence: paragraph || selected.trim(), translation: "", outline: "", anchor: paragraph || selected.trim() };
+        const snapshot = block?.text || selected.trim();
+        let context: ArticleContext = { location: "snapshot", sentence: snapshot, translation: "", outline: "", anchor: snapshot };
         // 切换文件或退出后不弹出延迟结果。
         const valid = (): boolean => {
             this.host.prune();
-            return this.alive && this.queries.get(view) === sequence && this.host.sessions.get(view)?.token === session.token && view.file === session.file && (!block || (block.element.isConnected && block.element.textContent === rendered));
+            return this.alive && this.queries.get(view) === sequence && this.host.sessions.get(view)?.token === session?.token && view.file === file && view.getMode() === mode && (!block || (block.element.isConnected && block.element.textContent === rendered));
         };
         await this.plugin.activateView(SEARCH_PANEL_VIEW, "left");
         if (!valid()) return;
-        window.dispatchEvent(new CustomEvent("lingualeaf-dictionary-search", { detail: { selection: selected, leafCapture: { card: { language: this.host.language(session.file) } } } }));
+        window.dispatchEvent(new CustomEvent("lingualeaf-dictionary-search", { detail: { selection: selected, leafCapture: { card: { language: this.host.language(file) } } } }));
         try {
-            // 来源适配器只读取当前来源，定位和词典请求互不阻断。
-            const source = await this.plugin.app.vault.read(session.file);
-            context = block ? locateReadingContext(source, selected.trim(), block, this.host.outline(source), this.host.settings) : await this.host.context(session.file, selected.trim(), paragraph);
-            context.location = "confirmed";
+            // 编辑视图以打开菜单时的缓冲区为准，支持尚未保存的改动。
+            const source = "editor" in origin ? origin.editor.source : await this.plugin.app.vault.read(file);
+            const outline = this.host.outline(source);
+            const located = "editor" in origin
+                ? locateEditorContext(origin.editor, selected.trim(), outline, this.host.settings)
+                : locateReadingContext(source, selected.trim(), origin.block, outline, this.host.settings);
+            if (located) context = { ...located, location: "confirmed" };
         } catch (error) {
             if (valid()) new Notice(error instanceof Error ? error.message : "来源位置未确认，使用可见文本快照");
         }
         if (!valid()) return;
         // 同文再次查询复用原卡身份和手工字段，本次上下文在打开面板时合并。
-        const matches = (await this.host.scan()).filter(item => expressionKey(item.card.language, item.card.text) === expressionKey(this.host.language(session.file), selected));
+        const matches = (await this.host.scan()).filter(item => expressionKey(item.card.language, item.card.text) === expressionKey(this.host.language(file), selected));
         // 同文编辑复用卡片身份，跨文只复用共享词条的管理字段。
-        const existing = matches.find(item => item.path === session.file.path && (!this.host.library || item.sources?.some(source => source.vaultId === this.host.settings.vaultId && source.path === session.file.path)));
-        if (valid()) await this.openCapture(session.file, selected.trim(), context, valid, existing?.card, matches[0]?.card);
+        const existing = matches.find(item => this.matchesArticle(item, file));
+        if (valid()) await this.openCapture(file, selected.trim(), context, valid, existing?.card, matches[0]?.card);
     }
     /** 使用原查词和新词 Vue 面板呈现查询，不创建独立收录弹窗 */
     async openCapture(file: TFile, selected: string, context: ArticleContext, valid: () => boolean, existing?: LeafCard, seed?: LeafCard, showSearch = true, isEdit = false): Promise<void> {
@@ -267,22 +330,55 @@ export class LinguaLeafRuntime {
         await this.plugin.activateView(LEARN_PANEL_VIEW, "right");
         window.dispatchEvent(new CustomEvent("obsidian-langr-search", { detail: { selection: card.text, leafCapture: request } }));
     }
-    /** 新词表单提交后只对来源文章的目标 SR 闪卡做增量更新 */
-    async saveCapture(request: PanelCapture, model: ExpressionInfo, outline: string): Promise<void> {
-        if (this.capture?.id !== request.id || !request.valid() || !this.alive) throw new Error("来源文章已关闭或查询已改变，请重新选择");
-        // 独立编辑检查版本；再次收录仍使用请求身份保证幂等。
-        const saved = formToCard(request.card, model, outline);
-        await this.host.save(request.file, saved, request.isEdit ? undefined : request.id, request.revision);
-        if (this.host.library) {
-            // 保存后面板转为编辑已有资料，再次修改不会增加收录次数。
-            const item = (await this.host.scan()).find(item => item.card.id === saved.id) || (await this.host.scan()).find(item => expressionKey(item.card.language, item.card.text) === expressionKey(saved.language, saved.text) && item.sources?.some(source => source.vaultId === this.host.settings.vaultId && source.path === request.file?.path));
-            if (item) { request.card = item.card; request.revision = item.revision; request.isEdit = true; }
+    /** 按来源库和路径匹配，不把其他库的同名文章当成当前文章。 */
+    private matchesArticle(item: IndexedCard, file: TFile): boolean {
+        if (!this.host.library) return item.path === file.path;
+        const { vaultId, path } = this.host.source(file.path);
+        return !!item.sources?.some(source => source.vaultId === vaultId && source.path === path);
+    }
+    /** 保存收录或显式编辑；手工输入的词句要在提交时匹配同篇旧卡。 */
+    async saveCapture(request: PanelCapture, model: ExpressionInfo, outline: string): Promise<ExpressionInfo> {
+        const assertCurrent = () => {
+            if (this.capture?.id !== request.id || !request.valid() || !this.alive) throw new Error("来源文章已关闭或查询已改变，请重新选择");
+        };
+        assertCurrent();
+        let base = request.card;
+        let revision = request.revision;
+        const key = expressionKey(base.language, model.expression);
+        const file = request.file;
+        if (!request.isEdit && file && !base.text.trim()) {
+            const existing = (await this.host.scan()).find(item =>
+                expressionKey(item.card.language, item.card.text) === key && this.matchesArticle(item, file));
+            if (existing) {
+                base = existing.card;
+                revision = existing.revision;
+                const previous = cardToForm(base, file.basename);
+                model = {
+                    ...model,
+                    notes: model.notes.length ? model.notes : previous.notes,
+                    tags: model.tags.length ? model.tags : previous.tags,
+                    sentences: mergeCapturedSentences(model.sentences, previous.sentences),
+                };
+            }
+        }
+        assertCurrent();
+        const saved = formToCard(base, model, outline);
+        await this.host.save(file, saved, request.isEdit ? undefined : request.id, revision);
+        const items = await this.host.scan();
+        const item = items.find(item => item.card.id === saved.id) || (file && items.find(item =>
+            expressionKey(item.card.language, item.card.text) === key && this.matchesArticle(item, file)));
+        if (item) {
+            request.card = item.card;
+            request.revision = item.revision;
+            if (this.host.library) request.isEdit = true;
+            request.model = cardToForm(item.card, file?.basename || "");
         }
         // 当前面板同步显示最新累计次数，继续编辑不重复增加。
-        request.captureCount = (await this.host.scan()).find(item => expressionKey(item.card.language, item.card.text) === expressionKey(request.card.language, model.expression))?.captureCount || 0;
+        request.captureCount = item?.captureCount || 0;
         // 保存完成后刷新原有单词列表。
         window.dispatchEvent(new CustomEvent("obsidian-langr-refresh", { detail: { expression: model.expression, type: model.t } }));
         new Notice(this.host.library ? "已保存到独立学习库，原笔记未修改" : "已保存到本文闪卡，现有复习进度已保留");
+        return item ? request.model : model;
     }
     /** 卸载插件时关闭当前文章会话 */
     unload(): void { this.alive = false; this.host.onSessionChange = undefined; this.host.dispose(); }

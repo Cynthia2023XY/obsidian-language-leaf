@@ -33,6 +33,21 @@ export function cardToForm(card: LeafCard, origin: string): ExpressionInfo {
         sentences: (card.sentences || (card.sentence ? [{ text: card.sentence, trans: card.translation, origin }] : [])).map(entry => ({ ...entry })) };
 }
 
+/** 手工收录匹配到旧卡时，将新例句排在前面并补回表单未载入的历史例句。 */
+export function mergeCapturedSentences(incoming: Sentence[], previous: Sentence[]): Sentence[] {
+    const key = (text: string): string => text.replace(/\s+/g, " ").trim();
+    const merged = new Map<string, Sentence>();
+    for (const entry of [...incoming, ...previous]) {
+        const normalized = key(entry.text);
+        if (!normalized) continue;
+        const first = merged.get(normalized);
+        merged.set(normalized, first
+            ? { ...first, trans: first.trans || entry.trans, origin: first.origin || entry.origin }
+            : { ...entry });
+    }
+    return [...merged.values()];
+}
+
 /** 再次划词收录时优先展示当前语境，同时保留已有例句和手工管理字段。 */
 export function withCaptureContext(card: LeafCard, context: ArticleContext, origin: string): LeafCard {
     // 历史例句转换为独立副本，面板编辑不能提前修改索引中的旧卡。
